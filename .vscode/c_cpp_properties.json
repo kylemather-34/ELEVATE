@@ -1,0 +1,21 @@
+{
+  "configurations": [
+    {
+      "name": "Win32",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "${workspaceFolder}/include"
+      ],
+      "browse": {
+        "path": [
+          "${workspaceFolder}/include"
+        ]
+      },
+      "intelliSenseMode": "windows-gcc-x64",  // Or msvc-x64 if using MSVC
+      "compilerPath": "C:/mingw-w64/bin/g++.exe",  // Adjust path if needed
+      "cStandard": "c11",
+      "cppStandard": "c++17"
+    }
+  ],
+  "version": 4
+}
