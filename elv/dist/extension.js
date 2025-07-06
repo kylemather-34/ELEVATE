@@ -53,9 +53,15 @@ function activate(context) {
     );
     const indexPath = path.join(context.extensionPath, "ui", "dist", "index.html");
     let html = fs.readFileSync(indexPath, "utf8");
-    html = html.replace(/(["'])\/assets\/(.*?)\1/g, (_, quote, assetPath) => {
+    html = html.replace(/(["'])(\.\/|\/)?assets\/(.*?)\1/g, (_, quote, slash, assetPath) => {
       const resourceUri = panel.webview.asWebviewUri(
         vscode.Uri.file(path.join(context.extensionPath, "ui", "dist", "assets", assetPath))
+      );
+      return `${quote}${resourceUri.toString()}${quote}`;
+    });
+    html = html.replace(/(["'])(\.\/|\/)?vite\.svg\1/g, (_, quote, _prefix) => {
+      const resourceUri = panel.webview.asWebviewUri(
+        vscode.Uri.file(path.join(context.extensionPath, "ui", "dist", "assets", "vite.svg"))
       );
       return `${quote}${resourceUri.toString()}${quote}`;
     });
