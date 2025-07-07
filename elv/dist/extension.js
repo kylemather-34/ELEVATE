@@ -37,7 +37,21 @@ module.exports = __toCommonJS(extension_exports);
 var vscode = __toESM(require("vscode"));
 var path = __toESM(require("path"));
 var fs = __toESM(require("fs"));
+var diagnosticCollection = vscode.languages.createDiagnosticCollection("elevate");
+async function sendToBackend(code) {
+  const res = await fetch("http://localhost:5000/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code })
+  });
+  if (!res.ok) {
+    throw new Error(await res.text());
+  }
+  const data = await res.json();
+  return data.message || "[No message]";
+}
 function activate(context) {
+  const diagnosticCollection2 = vscode.languages.createDiagnosticCollection("elevate");
   const disposable = vscode.commands.registerCommand("elv.helloWorld", () => {
     const panel = vscode.window.createWebviewPanel(
       "elevatePanel",
@@ -65,8 +79,54 @@ function activate(context) {
       );
       return `${quote}${resourceUri.toString()}${quote}`;
     });
-    console.log(html);
     panel.webview.html = html;
+    context.subscriptions.push(diagnosticCollection2);
+    panel.webview.onDidReceiveMessage(
+      async (message) => {
+        console.log("Received from Webview: ", message);
+        switch (message.command) {
+          case "analyzeCode":
+            try {
+              const result = await sendToBackend(message.code || "");
+              const editor = vscode.window.activeTextEditor;
+              panel.webview.postMessage({ command: "analysisResult", result });
+              if (!editor) {
+                return;
+              }
+              const doc = editor.document;
+              const issues = JSON.parse(result);
+              const diagnostics = [];
+              if (Array.isArray(issues)) {
+                for (const issue of issues) {
+                  const line = Math.max(0, issue.line - 1);
+                  const range = doc.lineAt(line).range;
+                  const severityMap = {
+                    info: vscode.DiagnosticSeverity.Information,
+                    warning: vscode.DiagnosticSeverity.Warning,
+                    error: vscode.DiagnosticSeverity.Error
+                  };
+                  const diagnostic = new vscode.Diagnostic(
+                    range,
+                    issue.message,
+                    severityMap[issue.severity] ?? vscode.DiagnosticSeverity.Information
+                  );
+                  diagnostics.push(diagnostic);
+                }
+                diagnosticCollection2.set(doc.uri, diagnostics);
+                console.log(`[ELEVATE] Applied ${diagnostics.length} diagnostics to ${doc.uri.fsPath}`);
+              }
+            } catch (err) {
+              panel.webview.postMessage({
+                command: "analysisError",
+                result: "Error: " + err.message
+              });
+            }
+            break;
+        }
+      },
+      void 0,
+      context.subscriptions
+    );
   });
   context.subscriptions.push(disposable);
 }

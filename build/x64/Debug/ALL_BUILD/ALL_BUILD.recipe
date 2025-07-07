@@ -2,10 +2,10 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>C:\Users\Kyle\Desktop\Capstone\ELEVATE\build\x64\Debug\ZERO_CHECK</FullPath>
+      <FullPath>C:\Users\Kyle\desktop\capstone\elevate\build\x64\Debug\ZERO_CHECK</FullPath>
     </ProjectOutput>
     <ProjectOutput>
-      <FullPath>C:\Users\Kyle\Desktop\Capstone\ELEVATE\build\Debug\elevate_backend.exe</FullPath>
+      <FullPath>C:\Users\Kyle\desktop\capstone\elevate\build\Debug\elevate_backend.exe</FullPath>
     </ProjectOutput>
     <ProjectOutput>
       <FullPath>C:\Users\Kyle\Desktop\Capstone\ELEVATE\build\x64\Debug\ALL_BUILD</FullPath>
