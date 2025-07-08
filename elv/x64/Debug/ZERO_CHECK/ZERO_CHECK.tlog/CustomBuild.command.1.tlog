@@ -1,0 +1,10 @@
+^C:\USERS\KYLE\DESKTOP\CAPSTONE\ELEVATE\ELV\CMAKEFILES\4308EF24D3BB7A508A54FEDE41BC99FD\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Kyle/Desktop/Capstone/ELEVATE -BC:/Users/Kyle/Desktop/Capstone/ELEVATE/elv --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/Kyle/Desktop/Capstone/ELEVATE/elv/elevate_backend.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

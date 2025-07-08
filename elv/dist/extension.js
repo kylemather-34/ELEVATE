@@ -128,6 +128,9 @@ function activate(context) {
       context.subscriptions
     );
   });
+  if (process.env.ELEVATE_AUTO === "1") {
+    vscode.commands.executeCommand("elv.helloWorld");
+  }
   context.subscriptions.push(disposable);
 }
 function deactivate() {

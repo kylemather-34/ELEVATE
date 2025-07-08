@@ -71,7 +71,6 @@ export function activate(context: vscode.ExtensionContext) {
 
               panel.webview.postMessage({ command: 'analysisResult', result });
 
-              // 👇 Only attempt underlining if editor is open
               if (!editor) {
                 return;
               }
@@ -110,7 +109,6 @@ export function activate(context: vscode.ExtensionContext) {
               });
             }
             break;
-
         }
       },
       undefined,
@@ -118,8 +116,14 @@ export function activate(context: vscode.ExtensionContext) {
     );
   });
 
+  // 👇 Automatically run the panel if environment variable is set
+  if (process.env.ELEVATE_AUTO === '1') {
+    vscode.commands.executeCommand('elv.helloWorld');
+  }
+
   context.subscriptions.push(disposable);
 }
+
 
 
 export function deactivate() {

@@ -1,0 +1,10 @@
+^C:\USERS\KYLE\DESKTOP\CAPSTONE\ELEVATE\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Kyle/Desktop/Capstone/ELEVATE -BC:/Users/Kyle/Desktop/Capstone/ELEVATE/elv --check-stamp-file C:/Users/Kyle/Desktop/Capstone/ELEVATE/elv/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
