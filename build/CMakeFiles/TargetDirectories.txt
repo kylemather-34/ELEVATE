@@ -1,3 +1,0 @@
-C:/Users/Kyle/desktop/capstone/elevate/build/CMakeFiles/elevate_backend.dir
-C:/Users/Kyle/desktop/capstone/elevate/build/CMakeFiles/ALL_BUILD.dir
-C:/Users/Kyle/desktop/capstone/elevate/build/CMakeFiles/ZERO_CHECK.dir
