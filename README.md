@@ -1,16 +1,41 @@
-Before running make sure Node.js is installed
+## Prerequisites
+Make sure **Node.js** is installed before running the extension.
 
-If you're on Linux
+---
 
-Install nvm
+## Linux Setup
+
+### 1. Install nvm
+```bash
 curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 source ~/.bashrc
+```
 
-Confirm install
+### 2. Verify installation
+```bash
 nvm --version
+```
 
-Install node
+### 3. Install Node (LTS)
+```bash
 nvm install --lts
+```
 
-Confirm
+### 4. Confirm Node is installed
+```bash
 node -v
+```
+
+---
+
+## Install Dependencies
+```bash
+npm install
+```
+
+---
+
+## Run the Extension
+```bash
+npm run compile
+```
