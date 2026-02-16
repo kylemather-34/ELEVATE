@@ -25,8 +25,11 @@ nvm install --lts
 ```bash
 node -v
 ```
-
----
+### Switch to Node 18
+```bash
+npm install 18
+npm use 18
+```
 
 ## Install Dependencies
 ```bash
