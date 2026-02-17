@@ -36,6 +36,11 @@ npm use 18
 npm install
 ```
 
+# Make dist folder
+```bash
+mkdir dist
+```
+
 ---
 
 ## Run the Extension
