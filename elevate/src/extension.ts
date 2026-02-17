@@ -6,10 +6,10 @@ import { Logger } from './logger';
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 
-	const logger = new Logger('ELEVATE', true); // enable debug
-	logger.info('Extension activated');
-	logger.show();
-	
+	// Use the console to output diagnostic information (console.log) and errors (console.error)
+	// This line of code will only be executed once when your extension is activated
+	console.log('Congratulations, your extension "elevate" is now active!');
+	console.log('hello');
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
@@ -23,6 +23,4 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 // This method is called when your extension is deactivated
-export function deactivate() {
-
-}
+export function deactivate() {}
