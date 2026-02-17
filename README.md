@@ -1,5 +1,6 @@
 ## Prerequisites
 Make sure **Node.js** is installed before running the extension.
+**VSCode ^1.109.0 required**
 
 ---
 
