@@ -1,19 +1,19 @@
-import { throws } from 'assert';
 import * as vscode from 'vscode';
 
 export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
 
-export class Logger {
+export class Logger implements vscode.Disposable {
     private channel: vscode.OutputChannel;
     private debugEnabled: boolean;
 
-    constructor(name: string = 'ELEVATE', debug: boolean = false) {
+    constructor(name: string = "ELEVATE", debug: boolean = true) {
         this.channel = vscode.window.createOutputChannel(name);
         this.debugEnabled = debug;
+        this.channel.show(true);
     }
 
     private format(level: LogLevel, message: string) {
-        const timestamp = new Date().toDateString();
+        const timestamp = new Date().toLocaleString();
         return `[${timestamp}] [${level}] ${message}`;
     }
 
@@ -21,7 +21,19 @@ export class Logger {
         this.channel.appendLine(this.format('INFO', message));
     }
 
+    warn(message: string) {
+        this.channel.appendLine(this.format('WARN', message));
+    }
+
+    error(message: string) {
+        this.channel.appendLine(this.format('ERROR', message));
+    }
+
     show() {
         this.channel.show(true);
+    }
+
+    dispose() {
+        this.channel.dispose();
     }
 }
