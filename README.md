@@ -1,14 +1,21 @@
 ## Prerequisites
 Make sure **Node.js** is installed before running the extension.
 
+**VSCode ^1.109.0 required**
+
 ---
 
-## Linux Setup
+## Linux/MacOS Setup
 
 ### 1. Install nvm
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 source ~/.bashrc
+```
+
+If you're on macOS and using zsh
+```zsh
+source ~/.zshrc
 ```
 
 ### 2. Verify installation
@@ -27,8 +34,8 @@ node -v
 ```
 ### Switch to Node 18
 ```bash
-npm install 18
-npm use 18
+nvm install 18
+nvm use 18
 ```
 
 ## Install Dependencies

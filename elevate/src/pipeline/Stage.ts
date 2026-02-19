@@ -1,6 +1,7 @@
 import { ElevateContext } from "../core/ElevateContext";
 
 export interface Stage {
+    name: string;
     run(ctx: ElevateContext): Promise<void>;
 }
 
