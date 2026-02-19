@@ -1,6 +1,6 @@
 // The module 'vscode' contains the VS Code extensibility API
 import * as vscode from 'vscode';
-import { Logger } from './logger';
+import { Logger } from './Logger';
 
 // module-level logger instance so it can be reused and disposed
 let logger: Logger | undefined;
