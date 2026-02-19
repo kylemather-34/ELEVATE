@@ -34,8 +34,8 @@ node -v
 ```
 ### Switch to Node 18
 ```bash
-npm install 18
-npm use 18
+nvm install 18
+nvm use 18
 ```
 
 ## Install Dependencies
