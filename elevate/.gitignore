@@ -1,2 +1,8 @@
+# Node/VSCode
 node_modules/
+
+# Typescript
 dist/
+
+# C++ build artifacts
+cpp_native/build/
