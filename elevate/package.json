@@ -9,15 +9,60 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:elevate.helloWorld",
+    "onCommand:elevate.runPrompt",
+    "onCommand:elevate.cancelJob",
+    "onCommand:elevate.openBackendStatus"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "elevate.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "elevate.runPrompt",
+        "title": "ELEVATE: Run Prompt (Ollama)"
+      },
+      {
+        "command": "elevate.cancelJob",
+        "title": "ELEVATE: Cancel Job"
+      },
+      {
+        "command": "elevate.openBackendStatus",
+        "title": "ELEVATE: Backend Status"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "ELEVATE",
+      "properties": {
+        "elevate.ollamaUrl": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Base URL for Ollama REST API"
+        },
+        "elevate.backendPort": {
+          "type": "number",
+          "default": 34345,
+          "description": "Local backend HTTP port (extension-host server)"
+        },
+        "elevate.concurrency": {
+          "type": "number",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Max concurrent Ollama jobs"
+        },
+        "elevate.defaultModel": {
+          "type": "string",
+          "default": "llama3.1:latest",
+          "description": "Default Ollama model name"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

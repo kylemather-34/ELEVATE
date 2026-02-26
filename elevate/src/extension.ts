@@ -1,26 +1,113 @@
-// The module 'vscode' contains the VS Code extensibility API
-import * as vscode from 'vscode';
-import { Logger } from './logger';
+import * as vscode from "vscode";
+import { ElevateBackend } from "./backend/index";
+import { JobStatus } from "./backend/types";
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
+let backend: ElevateBackend | undefined;
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "elevate" is now active!');
-	console.log('hello');
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('elevate.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from ELEVATE!');
-	});
+export async function activate(context: vscode.ExtensionContext) {
+  const output = vscode.window.createOutputChannel("ELEVATE");
+  output.appendLine("[ELEVATE] Activating…");
 
-	context.subscriptions.push(disposable);
+  backend = new ElevateBackend(context, output);
+  await backend.start(); // auto-start on activation
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("elevate.openBackendStatus", async () => {
+      const status = backend ? await backend.health() : { ok: false };
+      vscode.window.showInformationMessage(
+        `ELEVATE backend: ${status.ok ? "OK" : "NOT RUNNING"}`
+      );
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("elevate.runPrompt", async () => {
+      if (!backend) return;
+
+      const cfg = vscode.workspace.getConfiguration("elevate");
+      const model = cfg.get<string>("defaultModel") ?? "llama3.1:latest";
+
+      const prompt = await vscode.window.showInputBox({
+        title: "ELEVATE (Ollama)",
+        prompt: "Enter a prompt to send to Ollama",
+        placeHolder: "e.g., Explain this error in one paragraph…",
+      });
+      if (!prompt) return;
+
+      output.show(true);
+      output.appendLine(`\n[ELEVATE] Enqueue job: model=${model}`);
+
+      const job = await backend.enqueueChatJob({
+        priority: 9,
+        model,
+        messages: [{ role: "user", content: prompt }],
+        keep_alive: "5m",
+        options: {},
+      });
+
+      output.appendLine(`[ELEVATE] Job created: ${job.job_id} (status=${job.status})`);
+      output.appendLine(`[ELEVATE] Streaming output…`);
+
+      // Stream events via in-process subscription (no HTTP needed for this UI)
+      const unsub = backend.subscribeJob(job.job_id, (evt) => {
+        if (evt.event_type === "OUTPUT_CHUNK") {
+          output.append(evt.payload.delta ?? "");
+        } else if (evt.event_type === "STATUS") {
+          output.appendLine(`\n[ELEVATE] Status: ${evt.payload.status}`);
+        } else if (evt.event_type === "ERROR") {
+          output.appendLine(`\n[ELEVATE] Error: ${evt.payload.message ?? "unknown"}`);
+        }
+      });
+
+      // Also show final state when done:
+      const done = await backend.waitForTerminalStatus(job.job_id);
+      unsub();
+
+      if (done.status === JobStatus.SUCCEEDED) {
+        output.appendLine(`\n[ELEVATE] ✅ Done.`);
+      } else if (done.status === JobStatus.CANCELED) {
+        output.appendLine(`\n[ELEVATE] 🛑 Canceled.`);
+      } else {
+        output.appendLine(`\n[ELEVATE] ❌ Failed: ${done.error ?? "unknown"}`);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("elevate.cancelJob", async () => {
+      if (!backend) return;
+
+      const jobs = await backend.listJobs(25);
+      if (jobs.length === 0) {
+        vscode.window.showInformationMessage("No jobs found.");
+        return;
+      }
+
+      const pick = await vscode.window.showQuickPick(
+        jobs.map((j) => ({
+          label: `${j.job_id}`,
+          description: `${j.status} • ${j.model} • prio ${j.priority}`,
+          detail: j.preview ?? "",
+          jobId: j.job_id,
+        })),
+        { title: "Cancel which job?" }
+      );
+      if (!pick) return;
+
+      const res = await backend.cancelJob(pick.jobId);
+      vscode.window.showInformationMessage(
+        `Job ${res.job_id}: ${res.previous_status} → ${res.new_status}`
+      );
+    })
+  );
+
+  context.subscriptions.push({
+    dispose: () => backend?.stop(),
+  });
+
+  output.appendLine("[ELEVATE] Activated.");
 }
 
-// This method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() {
+  backend?.stop();
+}
