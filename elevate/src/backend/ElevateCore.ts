@@ -1,10 +1,10 @@
 import * as vscode from "vscode";
-import { HttpServer } from "./httpServer";
-import { Router } from "./router";
-import { JobQueue } from "./jobQueue";
-import { JobStore } from "./jobStore";
-import { SseHub } from "./sseHub";
-import { OllamaClient } from "./ollamaClient";
+import { HttpServer } from "./HTTPServer";
+import { Router } from "./Router";
+import { JobQueue } from "./JobQueue";
+import { JobStore } from "./JobStore";
+import { SseHub } from "./SSEHub";
+import { OllamaClient } from "./OllamaClient";
 import { CreateChatJobRequest, HealthResponse, JobEvent, JobRecord, JobStatus, ModelsResponse } from "./types";
 import { isoNow } from "../util/time";
 

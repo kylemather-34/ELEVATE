@@ -1,14 +1,14 @@
 import * as vscode from "vscode";
-import { ElevateBackend } from "./backend/index";
+import { ElevateCore } from "./backend/ElevateCore";
 import { JobStatus } from "./backend/types";
 
-let backend: ElevateBackend | undefined;
+let backend: ElevateCore | undefined;
 
 export async function activate(context: vscode.ExtensionContext) {
   const output = vscode.window.createOutputChannel("ELEVATE");
   output.appendLine("[ELEVATE] Activating…");
 
-  backend = new ElevateBackend(context, output);
+  backend = new ElevateCore(context, output);
   await backend.start(); // auto-start on activation
 
   context.subscriptions.push(
