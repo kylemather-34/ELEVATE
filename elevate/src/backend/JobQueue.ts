@@ -1,9 +1,9 @@
 import { randomUUID } from "crypto";
 import { JobRecord, JobStatus, JobEvent, ChatMessage } from "./types";
 import { isoNow } from "../util/time";
-import { JobStore } from "./jobStore";
-import { SseHub } from "./sseHub";
-import { OllamaClient } from "./ollamaClient";
+import { JobStore } from "./JobStore";
+import { SseHub } from "./SSEHub";
+import { OllamaClient } from "./OllamaClient";
 
 export interface QueueConfig {
   concurrency: number; // 1..4

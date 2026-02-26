@@ -1,6 +1,6 @@
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { URL } from "url";
-import { Router } from "./router";
+import { Router } from "./Router";
 
 function sendJson(res: ServerResponse, status: number, obj: any) {
   const body = JSON.stringify(obj);
