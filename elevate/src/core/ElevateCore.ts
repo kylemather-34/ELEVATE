@@ -6,7 +6,6 @@ import { ElevateContext } from './ElevateContext';
 import * as stage from '../pipeline/Stage';
 
 const stages = [
-    new stage.ContextBuilderStage(),
     new stage.SanitizationStage(),
     new stage.ParseStage(),
     new stage.PromptBuilderStage(),

@@ -5,13 +5,6 @@ export interface Stage {
     run(ctx: ElevateContext): Promise<void>;
 }
 
-export class ContextBuilderStage implements Stage {
-    name = "Context Builder Stage";
-    async run(ctx: ElevateContext): Promise<void> {
-
-    }
-}
-
 export class SanitizationStage implements Stage {
     name = "Sanitization Stage";
     async run(ctx: ElevateContext): Promise<void> {
