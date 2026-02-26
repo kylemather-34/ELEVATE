@@ -1,9 +1,13 @@
 import * as vscode from 'vscode';
 import { FileSnapshot, snapshot } from './FileSnapshot';
+import { throws } from 'assert';
 
 export class ElevateContext {
     // File snapshot with version numbers and full text before analysis
-    readonly snapshot: FileSnapshot;
+    readonly snapshot?: FileSnapshot;
+
+    // For testing
+    text?: string;
 
     // Initial inputs
     // Text from VScode of active file after sanitization
@@ -23,8 +27,15 @@ export class ElevateContext {
     // compiler error/warnings
     diagnostics?: vscode.Diagnostic[];
 
-    constructor(doc: vscode.TextDocument) {
-        this.snapshot = snapshot(doc);
-    }
+    constructor(doc: vscode.TextDocument);
 
+    /** TEST ONLY: construct from raw text for unit tests */
+    constructor(text: string);
+    constructor(docOrText: vscode.TextDocument | string) {
+        if (typeof docOrText === 'string') {
+            this.text = docOrText;
+        } else {
+            this.snapshot = snapshot(docOrText);
+        }
+    }
 }
