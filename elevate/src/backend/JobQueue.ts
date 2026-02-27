@@ -21,6 +21,7 @@ export class JobQueue {
   private queue: Enqueued[] = [];
   private controllers = new Map<string, AbortController>();
   private inMemoryJobs = new Map<string, JobRecord>();
+  private activeByKey = new Map<string, string>(); // optional: key -> job_id for active jobs with that key (to enforce single active per key)
 
   constructor(
     private readonly store: JobStore,
@@ -89,11 +90,20 @@ export class JobQueue {
     priority: number;
     model: string;
     messages: ChatMessage[];
+    analysis_key: string; // optional: if provided, will ensure only one active job with the same key (cancels previous)
     keep_alive?: string;
     options?: Record<string, any>;
   }): Promise<JobRecord> {
+    
+    // 🔥 STEP 3 — Cancel previous job for same analysis key
+  const existingJobId = this.activeByKey.get(args.analysis_key);
+  if (existingJobId) {
+  await this.cancelJob(existingJobId);
+  }
+
     const job_id = String(Date.now()) + String(Math.floor(Math.random() * 10000)).padStart(4, "0");
 
+    
     const now = isoNow();
     const job: JobRecord = {
       job_id,
@@ -107,13 +117,15 @@ export class JobQueue {
       finished_at: null,
       keep_alive: args.keep_alive ?? "5m",
       options: args.options ?? {},
-      payload: { messages: args.messages },
+      payload: { messages: args.messages, analysis_key: args.analysis_key},
       result_text: null,
       error: null,
       metrics: null,
     };
 
     await this.setJob(job);
+
+    this.activeByKey.set(args.analysis_key, job_id);
 
     this.queue.push({ jobId: job_id, priority: job.priority, enqueuedAt: Date.now() });
     this.sortQueue();
@@ -175,6 +187,11 @@ export class JobQueue {
       const job = await this.getJob(next.jobId);
       if (!job) continue;
 
+      const key = job.payload?.analysis_key;
+      if (key && this.activeByKey.get(key) !== job.job_id) {
+      continue; // stale job — skip it
+      }
+
       // Might have been canceled while waiting
       if (job.status === JobStatus.CANCELED) continue;
 
@@ -200,6 +217,13 @@ export class JobQueue {
           keep_alive: job.keep_alive ?? "5m",
           signal: controller.signal,
         })) {
+        
+          const currentKey = job.payload?.analysis_key;
+          if (currentKey && this.activeByKey.get(currentKey) !== job.job_id) {
+          controller.abort();
+          throw new Error("stale_job");
+          }
+
           if (controller.signal.aborted) throw new Error("aborted");
 
           const delta = part.delta ?? "";
@@ -257,6 +281,11 @@ export class JobQueue {
           this.emit(job.job_id, "STATUS", { status: JobStatus.FAILED });
         }
       } finally {
+        const key = job.payload?.analysis_key;
+        if (key && this.activeByKey.get(key) === job.job_id) {
+        this.activeByKey.delete(key);
+        }
+        
         this.controllers.delete(job.job_id);
       }
     }
