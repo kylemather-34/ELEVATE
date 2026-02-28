@@ -71,7 +71,7 @@ BlockType Parser::detectType(const string& line){
 // Reads the file and returns a vector of all block events
 vector<BlockEvent> Parser::parseFile(ifstream& file){
     vector<BlockEvent> events;
-    stack<BlockEvent> blockStack;
+    stack<ActiveBlock> blockStack;
 
     string line;
     int lineNumber = 0;
@@ -85,7 +85,7 @@ vector<BlockEvent> Parser::parseFile(ifstream& file){
 
         if(trimmed.empty()) continue;
 
-        // Handle dednets (close blocks)
+        // Handle dedents (close blocks)
         while(!blockStack.empty() && indentLevel < blockStack.top().indentLevel) {
             BlockEvent endEvent;
             endEvent.isStart = false;
@@ -99,8 +99,16 @@ vector<BlockEvent> Parser::parseFile(ifstream& file){
             blockStack.pop();
         }
 
+        //D Determine current active block (smallest enclosing block)
+        BlockType activeType = BlockType::UNKNOWN;
+        if(!blockStack.empty() {
+            activeType = blockStack.top();
+        })
+
         // Hand new block start
         if (startBlock(line)) {
+            BlockType detectedType = detectedType(line);
+
             BlockEvent startEvent;
             startEvent.isStart = true;
             startEvent.type = detectType(line);
@@ -110,7 +118,7 @@ vector<BlockEvent> Parser::parseFile(ifstream& file){
 
             events.push_back(startEvent);
 
-            blockStack.push({type, indentLevel}); // push only tracking information
+            blockStack.push({detectedType, indentLevel}); // Push only tracking information
         }
     }
 
