@@ -71,45 +71,61 @@ BlockType Parser::detectType(const string& line){
 // Reads the file and returns a vector of all block events
 vector<BlockEvent> Parser::parseFile(ifstream& file){
     vector<BlockEvent> events;
+    stack<BlockEvent> blockStack;
+
     string line;
     int lineNumber = 0;
-    int previousIndentLevel = 0; // Tracks indent of previous line to detect when blocks end
 
     // Read file line by line
-    while(getline(file, line, '\n')){
+    while(getline(file, line)){
         lineNumber++;
 
         int indentLevel = countIndent(line);
+        string trimmed = trim(line);
 
-        // Detect end of block when indentation decreases
-        if (indentLevel < previousIndentLevel){
+        if(trimmed.empty()) continue;
+
+        // Handle dednets (close blocks)
+        while(!blockStack.empty() && indentLevel < blockStack.top().indentLevel) {
             BlockEvent endEvent;
-
             endEvent.isStart = false;
-            endEvent.type = BlockType::UNKNOWN;
+            endEvent.type = blockStack.top.type;
             endEvent.lineNumber = lineNumber;
             endEvent.indentLevel = indentLevel;
-            endEvent.lineText = trim(line);
+            endEvent.lineText = trimmed;
 
             events.push_back(endEvent);
+
+            blockStack.pop();
         }
 
-        // Detect start of block when line ends with :
-        if(startBlock(line)){
-            BlockEvent startEvent;
-
+        // Hand new block start
+        if (startBlock(line)) {
+            BlockEvent startEvent
             startEvent.isStart = true;
             startEvent.type = detectType(line);
             startEvent.lineNumber = lineNumber;
             startEvent.indentLevel = indentLevel;
-            startEvent.lineText = trim(line);
+            startEvent.lineText = trimmed;
 
             events.push_back(startEvent);
+            blockStack.push(startEvent);
         }
-
-        // Save indent level for nect comparison
-        previousIndentLevel = indentLevel;
     }
+
+     // Close remaining blocks at EOF(End-Of-File)
+        while (!blockStack.empty()) {
+            BlockEvent endEvent
+            endEvent.isStart = false;
+            endEvent.type = blockStack.top().type;
+            endEvent.lineNumber = lineNumber;
+            endEvent.indentLevel = 0;
+            endEvent.lineText = "EOF";
+
+            events.push_back(endEvent);
+
+            blockStack.pop();
+        }
 
     return events;
 }

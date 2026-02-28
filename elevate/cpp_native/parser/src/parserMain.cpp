@@ -16,5 +16,16 @@ int main(int argc, char* argv[]) {
         cerr << "Error: Could not open file " << inputFile << "\n";
     }
 
+    Parser parser;
+    vector<blockEvent> events = parser.parseFile(file);
+
+    // Debug print
+    for(const auto& event : events) {
+        cout << (event.isStart ? "Start: " : "End: ")
+             << "Line " << event.lineNumber
+             << " Indent " << event.indentLevel
+             << " Text: " << event.lineText << endl;
+    }
+
     return 0;
 }

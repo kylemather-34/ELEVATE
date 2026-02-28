@@ -21,14 +21,14 @@ struct BlockEvent {
 
 class Parser {
     public:
-    Parser();
-    ~Parser() = default;
+        Parser();
+        ~Parser() = default;
 
-    vector<BlockEvent> parseFile(ifstream& file); // Reads the file and returns a vector of all block events
+        vector<BlockEvent> parseFile(ifstream& file); // Reads the file and returns a vector of all block events
 
     private:
-    int countIndent(const string& line);      // Counts leading whitespace to determine indentation level
-    string trim(const string& line);          // Removes leading and trailing whitespace
-    bool startBlock(const string& line);      // Determines the start of each block
-    BlockType detectType(const string& line); // Determines the type of each block
+        int countIndent(const string& line);      // Counts leading whitespace to determine indentation level
+        string trim(const string& line);          // Removes leading and trailing whitespace
+        bool startBlock(const string& line);      // Determines the start of each block
+        BlockType detectType(const string& line); // Determines the type of each block
 };
