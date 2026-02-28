@@ -30,7 +30,7 @@ string blockTypeToString(BlockType type); // Returns the type of the block as a 
 
 class Parser {
     public:
-        Parser();
+        Parser() = default;
         ~Parser() = default;
 
         vector<BlockEvent> parseFile(ifstream& file); // Reads the file and returns a vector of all block events

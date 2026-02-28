@@ -17,6 +17,7 @@ int main(int argc, char* argv[]) {
     ifstream file(inputFile);
     if (!file.is_open()) {
         cerr << "Error: Could not open file " << inputFile << "\n";
+        return 1;
     }
 
     Parser parser;

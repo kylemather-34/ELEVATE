@@ -17,55 +17,43 @@ int Parser::countIndent(const string& line){
 string Parser::trim(const string& line){
     
     // Finds first non-whitespace character
-    size_t start = line.find_first_not_of(" \t");
+    size_t start = line.find_first_not_of(" \t\r\n");
 
     // If there are no non whitespace characters in the checked line, return
     if (start == string::npos) return "";
 
     // Finds last non-whitespace character
-    size_t end = line.find_last_not_of(" \t");
+    size_t end = line.find_last_not_of(" \t\r\n");
 
     return line.substr(start, end - start + 1);
 }
 
 // Determines the start of each block
 bool Parser::startBlock(const string& line){
-
     string s = trim(line);
 
     if(s.empty()) return false;
 
-    return s.back() == ':';
+    return !s.empty()&& s[s.length()-1] == ':';
 }
 
 // Determines the type of each block
-BlockType Parser::detectType(const string& line){
+BlockType Parser::detectType(const string& line) {
     string s = trim(line);
 
-    /*
-    Looks at the first character of the block and determines the type of block
-    Special case 1: elif, else, and except all start with e so the third character is checked to differentiate
-    Special case 2: while and with both start with w so the second letter is checked to differentiate
-    */
-    switch(s[0]){
-        case 'c': return BlockType::CLASS;
-        case 'd': return BlockType::FUNCTION;
-        case 'i': return BlockType::IF;
-        case 'e':
-            switch(s[2]){
-                case 'i': return BlockType::ELIF;
-                case 's': return BlockType::ELSE;
-                case 'c': return BlockType::EXCEPT;
-            }
-        case 'f': return BlockType::FOR;
-        case 'w':
-            switch(s[1]){
-                case 'h': return BlockType::WHILE;
-                case 'i': return BlockType::WITH;
-            }
-        case 't': return BlockType::TRY;
-        default: return BlockType::UNKNOWN;
-    }
+    // Checks the line for any of the indicators of a new block
+    if (s.rfind("class ", 0) == 0) return BlockType::CLASS;
+    if (s.rfind("def ", 0) == 0) return BlockType::FUNCTION;
+    if (s.rfind("if ", 0) == 0) return BlockType::IF;
+    if (s.rfind("elif ", 0) == 0) return BlockType::ELIF;
+    if (s.rfind("else", 0) == 0) return BlockType::ELSE;
+    if (s.rfind("for ", 0) == 0) return BlockType::FOR;
+    if (s.rfind("while ", 0) == 0) return BlockType::WHILE;
+    if (s.rfind("try", 0) == 0) return BlockType::TRY;
+    if (s.rfind("except", 0) == 0) return BlockType::EXCEPT;
+    if (s.rfind("with ", 0) == 0) return BlockType::WITH;
+
+    return BlockType::UNKNOWN;
 }
 
 // Reads the file and returns a vector of all block events
