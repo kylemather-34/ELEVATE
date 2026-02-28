@@ -99,7 +99,7 @@ vector<BlockEvent> Parser::parseFile(ifstream& file){
             blockStack.pop();
         }
 
-        //D Determine current active block (smallest enclosing block)
+        // Determine current active block (smallest enclosing block)
         BlockType activeType = BlockType::UNKNOWN;
         if(!blockStack.empty() {
             activeType = blockStack.top();
