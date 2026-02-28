@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
     }
 
     Parser parser;
-    vector<blockEvent> events = parser.parseFile(file);
+    vector<BlockEvent> events = parser.parseFile(file);
 
     // Debug print
     for(const auto& event : events) {

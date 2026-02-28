@@ -89,7 +89,7 @@ vector<BlockEvent> Parser::parseFile(ifstream& file){
         while(!blockStack.empty() && indentLevel < blockStack.top().indentLevel) {
             BlockEvent endEvent;
             endEvent.isStart = false;
-            endEvent.type = blockStack.top.type;
+            endEvent.type = blockStack.top().type;
             endEvent.lineNumber = lineNumber;
             endEvent.indentLevel = indentLevel;
             endEvent.lineText = trimmed;
@@ -101,7 +101,7 @@ vector<BlockEvent> Parser::parseFile(ifstream& file){
 
         // Hand new block start
         if (startBlock(line)) {
-            BlockEvent startEvent
+            BlockEvent startEvent;
             startEvent.isStart = true;
             startEvent.type = detectType(line);
             startEvent.lineNumber = lineNumber;
@@ -109,13 +109,14 @@ vector<BlockEvent> Parser::parseFile(ifstream& file){
             startEvent.lineText = trimmed;
 
             events.push_back(startEvent);
-            blockStack.push(startEvent);
+
+            blockStack.push({type, indentLevel}); // push only tracking information
         }
     }
 
      // Close remaining blocks at EOF(End-Of-File)
         while (!blockStack.empty()) {
-            BlockEvent endEvent
+            BlockEvent endEvent;
             endEvent.isStart = false;
             endEvent.type = blockStack.top().type;
             endEvent.lineNumber = lineNumber;
