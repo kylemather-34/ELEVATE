@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <stack>
 
 using namespace std;
 
@@ -18,6 +19,14 @@ struct BlockEvent {
     int indentLevel;
     string lineText;
 };
+
+// structure only for nesting tracking
+struct ActiveBlock {
+    BlockType type;
+    int indentLevel;
+};
+
+string blockTypeToString(BlockType type); // Returns the type of the block as a string
 
 class Parser {
     public:

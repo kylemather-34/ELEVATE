@@ -1,4 +1,7 @@
 #include "parserClass.hpp"
+#include "json.hpp"
+
+using json = nlohmann::json;
 
 
 int main(int argc, char* argv[]) {
@@ -19,13 +22,29 @@ int main(int argc, char* argv[]) {
     Parser parser;
     vector<BlockEvent> events = parser.parseFile(file);
 
-    // Debug print
-    for(const auto& event : events) {
-        cout << (event.isStart ? "Start: " : "End: ")
-             << "Line " << event.lineNumber
-             << " Indent " << event.indentLevel
-             << " Text: " << event.lineText << endl;
+    json output = json::array();
+
+    for (const auto& event : events){
+        json obj;
+
+        obj["event"] = event.isStart ? "start" : "end";
+        obj["type"] = blockTypeToString(event.type);
+        obj["line"] = event.lineNumber;
+        obj["indent"] = event.indentLevel;
+        obj["text"] = event.lineText;
+
+        output.push_back(obj);
     }
 
+    ofstream outFile("output.json");
+
+    if (!outFile.is_open()){
+        cerr << "Error: Could not create output.json\n";
+    }
+
+    outFile << output.dump(4);
+
+    file.close();
+    outFile.close();
     return 0;
 }

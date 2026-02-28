@@ -101,13 +101,13 @@ vector<BlockEvent> Parser::parseFile(ifstream& file){
 
         // Determine current active block (smallest enclosing block)
         BlockType activeType = BlockType::UNKNOWN;
-        if(!blockStack.empty() {
-            activeType = blockStack.top();
-        })
+        if(!blockStack.empty()) {
+            activeType = blockStack.top().type;
+        }
 
-        // Hand new block start
+        // Handle new block start
         if (startBlock(line)) {
-            BlockType detectedType = detectedType(line);
+            BlockType detectedType = detectType(line);
 
             BlockEvent startEvent;
             startEvent.isStart = true;
@@ -137,4 +137,21 @@ vector<BlockEvent> Parser::parseFile(ifstream& file){
         }
 
     return events;
+}
+
+// Returns the type of the block as a string
+string blockTypeToString(BlockType type){
+    switch(type){
+        case BlockType::CLASS: return "class";
+        case BlockType::FUNCTION: return "function";
+        case BlockType::IF: return "if";
+        case BlockType::ELIF: return "elif";
+        case BlockType::ELSE: return "else";
+        case BlockType::FOR: return "for";
+        case BlockType::WHILE: return "while";
+        case BlockType::TRY: return "try";
+        case BlockType::EXCEPT: return "except";
+        case BlockType::WITH: return "with";
+        default: return "unknown";
+    }
 }
