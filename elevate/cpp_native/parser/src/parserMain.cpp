@@ -3,10 +3,11 @@
 
 using json = nlohmann::json;
 
-
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[])
+{
     // Check if a filename was provided
-    if (argc != 2) {
+    if (argc != 2)
+    {
         cerr << "Usage: " << argv[0] << " <input_file\n";
         return 1;
     }
@@ -15,17 +16,18 @@ int main(int argc, char* argv[]) {
 
     // Open the text file
     ifstream file(inputFile);
-    if (!file.is_open()) {
+    if (!file.is_open())
+    {
         cerr << "Error: Could not open file " << inputFile << "\n";
         return 1;
     }
 
-    Parser parser;
-    vector<BlockEvent> events = parser.parseFile(file);
+    vector<BlockEvent> events = Parser::parseFile(file);
 
     json output = json::array();
 
-    for (const auto& event : events){
+    for (const auto &event : events)
+    {
         json obj;
 
         obj["event"] = event.isStart ? "start" : "end";
@@ -39,7 +41,8 @@ int main(int argc, char* argv[]) {
 
     ofstream outFile("output.json");
 
-    if (!outFile.is_open()){
+    if (!outFile.is_open())
+    {
         cerr << "Error: Could not create output.json\n";
     }
 
