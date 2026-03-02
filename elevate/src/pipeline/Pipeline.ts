@@ -1,12 +1,19 @@
 import { ElevateContext } from "../core/ElevateContext";
-import { Stage } from "./Stage";
+import * as stage from "./Stage";
 import { Logger } from "../Logger";
 
+const stages = [
+    new stage.SanitizationStage(),
+    new stage.ParseStage(),
+    new stage.PromptBuilderStage(),
+    new stage.OllamaStage()
+];
+
 export class Pipeline {
-    private stages: Stage[];
+    private stages: stage.Stage[];
     private logger: Logger;
 
-    constructor(stages: Stage[], logger: Logger) {
+    constructor(stages: stage.Stage[], logger: Logger) {
         this.stages = stages;
         this.logger = logger;
     }
