@@ -1,4 +1,9 @@
+# Node/VSCode
 node_modules/
-dist/
 .vscode-test/
-out/
+
+# Typescript
+dist/
+
+# C++ build artifacts
+cpp_native/build/
