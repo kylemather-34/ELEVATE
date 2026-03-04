@@ -1,22 +1,112 @@
 import * as vscode from "vscode";
 import { ElevateCore } from "./backend/ElevateCore";
 import { JobStatus } from "./backend/types";
+import { CursorTracker } from "./cursorTracker";
+import { EditListener } from "./editListener";
 
 let backend: ElevateCore | undefined;
 
 export async function activate(context: vscode.ExtensionContext) {
   const output = vscode.window.createOutputChannel("ELEVATE");
+  context.subscriptions.push(output);
+
   output.appendLine("[ELEVATE] Activating…");
+
 
   backend = new ElevateCore(context, output);
   await backend.start(); // auto-start on activation
+  backend = new ElevateBackend(context, output);
+
+  // Start backend on activation, but don't crash activation if it fails.
+  try {
+    await backend.start();
+    output.appendLine("[ELEVATE] Backend started.");
+  } catch (err: any) {
+    output.appendLine(`[ELEVATE] Backend failed to start: ${err?.message ?? String(err)}`);
+    vscode.window.showWarningMessage(
+      "ELEVATE backend failed to start. Run “ELEVATE: Backend Status” for details."
+    );
+  }
+
+  const cfg = vscode.workspace.getConfiguration("elevate");
+
+  const cursorEnabled = cfg.get<boolean>("cursorTracking.enabled", true);
+  const editEnabled = cfg.get<boolean>("editListener.enabled", true);
+
+  const debounceMs = cfg.get<number>("editListener.debounceMs", 350);
+  const maxWaitMs = cfg.get<number>("editListener.maxWaitMs", 2500);
+
+  const fsWatcherEnabled = cfg.get<boolean>("fileWatcher.enabled", false);
+  const fsWatcherGlob = cfg.get<string>("fileWatcher.glob", "**/*");
+
+  const cursorTracker = new CursorTracker(
+    // Minimal logger adapter to match your existing output channel usage
+    { info: (msg: string) => output.appendLine(msg) } as any,
+    false
+  );
+
+  if (cursorEnabled) {
+    cursorTracker.start();
+    output.appendLine("[ELEVATE] Cursor tracking enabled.");
+  } else {
+    output.appendLine("[ELEVATE] Cursor tracking disabled by config.");
+  }
+  context.subscriptions.push(cursorTracker);
+
+  const editListener = new EditListener(
+    { info: (msg: string) => output.appendLine(msg) } as any,
+    {
+      debounceMs,
+      maxWaitMs,
+      fsWatcherEnabled,
+      fsWatcherGlob,
+    }
+  );
+
+  if (editEnabled) {
+    editListener.start();
+    output.appendLine(
+      `[ELEVATE] Edit listener enabled (debounce=${debounceMs}ms, maxWait=${maxWaitMs}ms).`
+    );
+  } else {
+    output.appendLine("[ELEVATE] Edit listener disabled by config.");
+  }
+  context.subscriptions.push(editListener);
+
+  // Command: Show cursor position
+  context.subscriptions.push(
+    vscode.commands.registerCommand("elevate.showCursorPosition", () => {
+      const loc = cursorTracker.getCurrent();
+      if (!loc) {
+        vscode.window.showInformationMessage("ELEVATE: No active text editor.");
+        return;
+      }
+
+      vscode.window.showInformationMessage(
+        `ELEVATE cursor: ${loc.uri.fsPath || loc.uri.toString()} @ ${loc.line1}:${loc.character1} (carets=${loc.caretCount})`
+      );
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("elevate.helloWorld", async () => {
+      vscode.window.showInformationMessage("Hello from ELEVATE 👋");
+    })
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("elevate.openBackendStatus", async () => {
-      const status = backend ? await backend.health() : { ok: false };
-      vscode.window.showInformationMessage(
-        `ELEVATE backend: ${status.ok ? "OK" : "NOT RUNNING"}`
-      );
+      try {
+        const status = backend ? await backend.health() : { ok: false };
+        vscode.window.showInformationMessage(
+          `ELEVATE backend: ${status.ok ? "OK" : "NOT RUNNING"}`
+        );
+      } catch (err: any) {
+        vscode.window.showInformationMessage("ELEVATE backend: NOT RUNNING");
+        output.appendLine(
+          `[ELEVATE] Backend status check failed: ${err?.message ?? String(err)}`
+        );
+      }
     })
   );
 
@@ -37,13 +127,20 @@ export async function activate(context: vscode.ExtensionContext) {
       output.show(true);
       output.appendLine(`\n[ELEVATE] Enqueue job: model=${model}`);
 
-      const job = await backend.enqueueChatJob({
-        priority: 9,
-        model,
-        messages: [{ role: "user", content: prompt }],
-        keep_alive: "5m",
-        options: {},
-      });
+      let job;
+      try {
+        job = await backend.enqueueChatJob({
+          priority: 9,
+          model,
+          messages: [{ role: "user", content: prompt }],
+          keep_alive: "5m",
+          options: {},
+        });
+      } catch (err: any) {
+        output.appendLine(`[ELEVATE] Failed to enqueue job: ${err?.message ?? String(err)}`);
+        vscode.window.showErrorMessage("Failed to enqueue ELEVATE job (see Output: ELEVATE).");
+        return;
+      }
 
       output.appendLine(`[ELEVATE] Job created: ${job.job_id} (status=${job.status})`);
       output.appendLine(`[ELEVATE] Streaming output…`);
@@ -60,15 +157,26 @@ export async function activate(context: vscode.ExtensionContext) {
       });
 
       // Also show final state when done:
-      const done = await backend.waitForTerminalStatus(job.job_id);
+      let done;
+      try {
+        done = await backend.waitForTerminalStatus(job.job_id);
+      } catch (err: any) {
+        unsub();
+        output.appendLine(
+          `\n[ELEVATE] Failed while waiting for completion: ${err?.message ?? String(err)}`
+        );
+        vscode.window.showErrorMessage("ELEVATE job failed (see Output: ELEVATE).");
+        return;
+      }
+
       unsub();
 
       if (done.status === JobStatus.SUCCEEDED) {
-        output.appendLine(`\n[ELEVATE] ✅ Done.`);
+        output.appendLine(`\n[ELEVATE] Done.`);
       } else if (done.status === JobStatus.CANCELED) {
-        output.appendLine(`\n[ELEVATE] 🛑 Canceled.`);
+        output.appendLine(`\n[ELEVATE] Canceled.`);
       } else {
-        output.appendLine(`\n[ELEVATE] ❌ Failed: ${done.error ?? "unknown"}`);
+        output.appendLine(`\n[ELEVATE] Failed: ${done.error ?? "unknown"}`);
       }
     })
   );
@@ -77,7 +185,15 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("elevate.cancelJob", async () => {
       if (!backend) return;
 
-      const jobs = await backend.listJobs(25);
+      let jobs;
+      try {
+        jobs = await backend.listJobs(25);
+      } catch (err: any) {
+        output.appendLine(`[ELEVATE] Failed to list jobs: ${err?.message ?? String(err)}`);
+        vscode.window.showErrorMessage("Failed to list jobs (see Output: ELEVATE).");
+        return;
+      }
+
       if (jobs.length === 0) {
         vscode.window.showInformationMessage("No jobs found.");
         return;
@@ -94,10 +210,15 @@ export async function activate(context: vscode.ExtensionContext) {
       );
       if (!pick) return;
 
-      const res = await backend.cancelJob(pick.jobId);
-      vscode.window.showInformationMessage(
-        `Job ${res.job_id}: ${res.previous_status} → ${res.new_status}`
-      );
+      try {
+        const res = await backend.cancelJob(pick.jobId);
+        vscode.window.showInformationMessage(
+          `Job ${res.job_id}: ${res.previous_status} → ${res.new_status}`
+        );
+      } catch (err: any) {
+        output.appendLine(`[ELEVATE] Cancel failed: ${err?.message ?? String(err)}`);
+        vscode.window.showErrorMessage("Failed to cancel job (see Output: ELEVATE).");
+      }
     })
   );
 
