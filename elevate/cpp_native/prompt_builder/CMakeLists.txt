@@ -1,7 +1,7 @@
-project(parser)
+project(prompt_builder)
 
 # Create executable
-add_executable(parser src/parserMain.cpp src/parserClass.cpp src/parserClass.hpp src/json.hpp)
+add_executable(prompt_builder src/main.cpp)
 
 # Link shared utilities
 target_link_libraries(parser PRIVATE cpp_utils)

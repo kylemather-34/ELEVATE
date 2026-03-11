@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
         output.push_back(obj);
     }
 
-    ofstream outFile("output.json");
+    ofstream outFile("parserOutput.json");
 
     if (!outFile.is_open())
     {
