@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ElevateContext } from '../core/ElevateContext';
+import { ElevateContext } from '../backend/ElevateContext';
 import { Pipeline } from '../pipeline/Pipeline';
 import { Logger } from '../Logger';
 import * as stage from '../pipeline/Stage';

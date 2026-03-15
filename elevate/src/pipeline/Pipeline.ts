@@ -1,4 +1,4 @@
-import { ElevateContext } from "../core/ElevateContext";
+import { ElevateContext } from "../backend/ElevateContext";
 import * as stage from "./Stage";
 import { Logger } from "../Logger";
 

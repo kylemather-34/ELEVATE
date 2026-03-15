@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { FileSnapshot, snapshot } from './FileSnapshot';
+import { FileSnapshot, snapshot } from '../core/FileSnapshot';
 import { throws } from 'assert';
 
 export class ElevateContext {

@@ -1,4 +1,4 @@
-import { ElevateContext } from "../core/ElevateContext";
+import { ElevateContext } from "../backend/ElevateContext";
 
 export interface Stage {
     name: string;
