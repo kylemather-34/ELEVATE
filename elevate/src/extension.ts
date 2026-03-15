@@ -1,6 +1,8 @@
 // The module 'vscode' contains the VS Code extensibility API
 import * as vscode from 'vscode';
 import { Logger } from './Logger';
+import { ElevateCore } from './core/ElevateCore';
+import { ElevateContext } from './core/ElevateContext';
 
 // module-level logger instance so it can be reused and disposed
 let logger: Logger | undefined;
@@ -19,6 +21,18 @@ export function activate(context: vscode.ExtensionContext) {
 		logger.show();
 	});
 	context.subscriptions.push(debugActivate);
+
+	const testCommand = vscode.commands.registerCommand('elevate.runtests', () => {
+		const core = new ElevateCore();
+		
+		let ctx = new ElevateContext("test context");
+		
+		vscode.window.showInformationMessage('Start all tests.');
+
+		// Pipeline test
+		core.executePipeline(ctx);
+		
+	});
 	
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand

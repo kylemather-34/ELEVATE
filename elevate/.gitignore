@@ -1,5 +1,6 @@
 # Node/VSCode
 node_modules/
+.vscode-test/
 
 # Typescript
 dist/
