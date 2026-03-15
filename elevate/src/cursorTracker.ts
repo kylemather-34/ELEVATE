@@ -1,6 +1,6 @@
 // elevate/src/cursorTracker.ts
 import * as vscode from 'vscode';
-import { Logger } from './logger';
+import { Logger } from './Logger';
 
 export interface CursorLocation {
   uri: vscode.Uri;

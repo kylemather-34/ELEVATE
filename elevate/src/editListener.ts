@@ -1,6 +1,6 @@
 // elevate/src/editListener.ts
 import * as vscode from 'vscode';
-import { Logger } from './logger';
+import { Logger } from './Logger';
 import { KeyedDebouncer } from './debounce';
 
 export interface EditListenerOptions {
@@ -8,6 +8,7 @@ export interface EditListenerOptions {
   maxWaitMs?: number;
   fsWatcherEnabled: boolean;
   fsWatcherGlob: string;
+  onEdit?: (doc: vscode.TextDocument) => void;
 }
 
 export class EditListener implements vscode.Disposable {
@@ -93,8 +94,6 @@ export class EditListener implements vscode.Disposable {
 
     this.logger.info(`[edit] ${doc.uri.toString()} (version=${doc.version}, dirty=${doc.isDirty})`);
 
-    // Future hook:
-    // const text = doc.getText();
-    // send text + cursor context to job queue / Ollama pipeline here (debounced).
+    this.opts.onEdit?.(doc);
   }
 }
