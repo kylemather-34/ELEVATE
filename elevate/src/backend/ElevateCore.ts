@@ -7,6 +7,10 @@ import { SseHub } from "./SSEHub";
 import { OllamaClient } from "./OllamaClient";
 import { CreateChatJobRequest, HealthResponse, JobEvent, JobRecord, JobStatus, ModelsResponse } from "./types";
 import { isoNow } from "../util/time";
+import { Pipeline } from "../pipeline/Pipeline";
+import { SanitizationStage, ParseStage, PromptBuilderStage, OllamaStage } from "../pipeline/Stage";
+import { Logger } from "../Logger";
+import { ElevateContext } from "./ElevateContext";
 
 export class ElevateBackend {
   private server: HttpServer | null = null;
@@ -14,6 +18,8 @@ export class ElevateBackend {
   private store: JobStore;
   private queue: JobQueue;
   private ollama: OllamaClient;
+  private logger: Logger;
+  private pipeline: Pipeline;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -27,6 +33,12 @@ export class ElevateBackend {
 
     this.ollama = new OllamaClient(ollamaUrl);
     this.queue = new JobQueue(this.store, this.hub, this.ollama, { concurrency });
+
+    this.logger = new Logger();
+    this.pipeline = new Pipeline(
+      [new SanitizationStage(), new ParseStage(), new PromptBuilderStage(), new OllamaStage()],
+      this.logger
+    );
   }
 
   async start(): Promise<void> {
@@ -154,6 +166,10 @@ export class ElevateBackend {
 
   async cancelJob(jobId: string) {
     return this.queue.cancelJob(jobId);
+  }
+
+  async runPipeline(ctx: ElevateContext): Promise<void> {
+    return this.pipeline.execute(ctx);
   }
 
   async waitForTerminalStatus(jobId: string): Promise<JobRecord> {
