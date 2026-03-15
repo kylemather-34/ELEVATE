@@ -90,15 +90,17 @@ export class JobQueue {
     priority: number;
     model: string;
     messages: ChatMessage[];
-    analysis_key: string; // optional: if provided, will ensure only one active job with the same key (cancels previous)
+    analysis_key?: string; // optional: if provided, will ensure only one active job with the same key (cancels previous)
     keep_alive?: string;
     options?: Record<string, any>;
   }): Promise<JobRecord> {
     
-    // 🔥 STEP 3 — Cancel previous job for same analysis key
-  const existingJobId = this.activeByKey.get(args.analysis_key);
-  if (existingJobId) {
-  await this.cancelJob(existingJobId);
+    // STEP 3 — Cancel previous job for same analysis key
+  if (args.analysis_key) {
+    const existingJobId = this.activeByKey.get(args.analysis_key);
+    if (existingJobId) {
+      await this.cancelJob(existingJobId);
+    }
   }
 
     const job_id = String(Date.now()) + String(Math.floor(Math.random() * 10000)).padStart(4, "0");
@@ -125,7 +127,9 @@ export class JobQueue {
 
     await this.setJob(job);
 
-    this.activeByKey.set(args.analysis_key, job_id);
+    if (args.analysis_key) {
+      this.activeByKey.set(args.analysis_key, job_id);
+    }
 
     this.queue.push({ jobId: job_id, priority: job.priority, enqueuedAt: Date.now() });
     this.sortQueue();
