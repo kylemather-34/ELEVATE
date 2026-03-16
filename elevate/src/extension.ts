@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ElevateCore } from "./backend/ElevateCore";
-import { JobStatus } from "./backend/types";
+import { JobEvent, JobRecord, JobStatus } from "./backend/types";
 import { CursorTracker } from "./cursorTracker";
 import { EditListener } from "./editListener";
 
@@ -14,8 +14,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 
   backend = new ElevateCore(context, output);
-  await backend.start(); // auto-start on activation
-  backend = new ElevateBackend(context, output);
 
   // Start backend on activation, but don't crash activation if it fails.
   try {
@@ -146,7 +144,7 @@ export async function activate(context: vscode.ExtensionContext) {
       output.appendLine(`[ELEVATE] Streaming output…`);
 
       // Stream events via in-process subscription (no HTTP needed for this UI)
-      const unsub = backend.subscribeJob(job.job_id, (evt) => {
+      const unsub = backend.subscribeJob(job.job_id, (evt: JobEvent) => {
         if (evt.event_type === "OUTPUT_CHUNK") {
           output.append(evt.payload.delta ?? "");
         } else if (evt.event_type === "STATUS") {
@@ -199,15 +197,13 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const pick = await vscode.window.showQuickPick(
-        jobs.map((j) => ({
-          label: `${j.job_id}`,
-          description: `${j.status} • ${j.model} • prio ${j.priority}`,
-          detail: j.preview ?? "",
-          jobId: j.job_id,
-        })),
-        { title: "Cancel which job?" }
-      );
+      const items = jobs.map((j: JobRecord & { preview?: string }) => ({
+        label: `${j.job_id}`,
+        description: `${j.status} • ${j.model} • prio ${j.priority}`,
+        detail: j.preview ?? "",
+        jobId: j.job_id,
+      }));
+      const pick = await vscode.window.showQuickPick(items, { title: "Cancel which job?" });
       if (!pick) return;
 
       try {

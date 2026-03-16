@@ -12,7 +12,7 @@ import { SanitizationStage, ParseStage, PromptBuilderStage, OllamaStage } from "
 import { Logger } from "../Logger";
 import { ElevateContext } from "./ElevateContext";
 
-export class ElevateBackend {
+export class ElevateCore {
   private server: HttpServer | null = null;
   private hub = new SseHub();
   private store: JobStore;
