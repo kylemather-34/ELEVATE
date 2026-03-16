@@ -45,6 +45,43 @@ export class Logger implements vscode.Disposable {
         this.channel.appendLine(this.format('ERROR', message));
     }
 
+    // Debug support
+    debug(message:string) {
+        if(this.debugEnabled) {
+            this.write('DEBUG', message);
+        }
+    }
+
+    // Safe truncation for large backend payloads
+    private truncate(text: string, maxLength: number = 1000): string {
+        if (!text) return '';
+
+        if (text.length < maxLength) {
+            return text;
+        }
+        
+        return text.substring(0, maxLength) + 
+            "\n...[truncated " + (text.length - maxLength) + " chars]";
+    }
+
+    // Log outgoing prompt to LLM
+    logPrompt(prompt:string) {
+        const trimmed = this.truncate(prompt);
+        this.debug("Prompt to Ollama: \n" + trimmed);
+    }
+
+    // Log streaming / response in chunks
+    logResponseChunck(chunk: string) {
+        const trimmed = this.truncate(chunk);
+        this.debug("Part of response from Ollama:\n" + trimmed);
+    }
+
+    // Log the entire repsonse from LLM
+    logResponseFinal(response: string) {
+        const trimmed = this.truncate(response);
+        this.info("Final response from Ollama:\n" + trimmed)
+    }
+
     show() {
         this.channel.show(true);
     }
