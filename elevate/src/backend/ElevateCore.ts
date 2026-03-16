@@ -39,7 +39,7 @@ export class ElevateCore {
 
     this.logger = new Logger();
     this.pipeline = new Pipeline(
-      [new SanitizationStage(), new ParseStage(parserBin), new PromptBuilderStage(), new OllamaStage()],
+      [new SanitizationStage(), new ParseStage(parserBin), new PromptBuilderStage(), new OllamaStage(this.ollama)],
       this.logger
     );
   }
