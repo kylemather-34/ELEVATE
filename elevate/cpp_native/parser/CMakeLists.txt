@@ -1,7 +1,7 @@
 project(parser)
 
 # Create executable
-add_executable(parser src/parser.cpp)
+add_executable(parser src/parserMain.cpp src/parserClass.cpp)
 
 # Link shared utilities
 target_link_libraries(parser PRIVATE cpp_utils)

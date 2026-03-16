@@ -6,13 +6,14 @@ using json = nlohmann::json;
 int main(int argc, char *argv[])
 {
     // Check if a filename was provided
-    if (argc != 2)
+    if (argc != 3)
     {
-        cerr << "Usage: " << argv[0] << " <input_file\n";
+        cerr << "Usage: " << argv[0] << " <input_file> <output_file>\n";
         return 1;
     }
 
     string inputFile = argv[1];
+    string outputFile = argv[2];
 
     // Open the text file
     ifstream file(inputFile);
@@ -39,11 +40,11 @@ int main(int argc, char *argv[])
         output.push_back(obj);
     }
 
-    ofstream outFile("output.json");
+    ofstream outFile(outputFile);
 
     if (!outFile.is_open())
     {
-        cerr << "Error: Could not create output.json\n";
+        cerr << "Error: Could not create output file " << outputFile << "\n";
     }
 
     outFile << output.dump(4);

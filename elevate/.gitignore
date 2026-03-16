@@ -4,6 +4,7 @@ node_modules/
 
 # Typescript
 dist/
+out/
 
 # C++ build artifacts
 cpp_native/build/

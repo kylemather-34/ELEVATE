@@ -10,24 +10,96 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onCommand:elevate.helloWorld",
+    "onCommand:elevate.runPrompt",
+    "onCommand:elevate.cancelJob",
+    "onCommand:elevate.openBackendStatus",
+    "onCommand:elevate.showCursorPosition"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "elevate.helloWorld",
-        "title": "Hello World"
+        "title": "ELEVATE: Hello World"
       },
       {
-        "command": "elevate.debug",
-        "title": "Activate Debug Mode"
+        "command": "elevate.runPrompt",
+        "title": "ELEVATE: Run Prompt (Ollama)"
       },
       {
-        "command": "elevate.runtests",
-        "title": "Run tests"
+        "command": "elevate.cancelJob",
+        "title": "ELEVATE: Cancel Job"
+      },
+      {
+        "command": "elevate.openBackendStatus",
+        "title": "ELEVATE: Backend Status"
+      },
+      {
+        "command": "elevate.showCursorPosition",
+        "title": "ELEVATE: Show Cursor Position"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "ELEVATE",
+      "properties": {
+        "elevate.ollamaUrl": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Base URL for Ollama REST API"
+        },
+        "elevate.backendPort": {
+          "type": "number",
+          "default": 34345,
+          "description": "Local backend HTTP port (extension-host server)"
+        },
+        "elevate.concurrency": {
+          "type": "number",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Max concurrent Ollama jobs"
+        },
+        "elevate.defaultModel": {
+          "type": "string",
+          "default": "llama3.2:3b",
+          "description": "Default Ollama model name"
+        },
+        "elevate.cursorTracking.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable cursor position tracking."
+        },
+        "elevate.editListener.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable debounced triggers for in-editor edits."
+        },
+        "elevate.editListener.debounceMs": {
+          "type": "number",
+          "default": 350,
+          "minimum": 0,
+          "description": "Debounce delay (ms) after last edit before firing."
+        },
+        "elevate.editListener.maxWaitMs": {
+          "type": "number",
+          "default": 2500,
+          "minimum": 0,
+          "description": "Maximum wait (ms) before firing even during continuous typing."
+        },
+        "elevate.fileWatcher.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable on-disk file change watcher (for external changes)."
+        },
+        "elevate.fileWatcher.glob": {
+          "type": "string",
+          "default": "**/*",
+          "description": "Glob for file system watcher."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -41,7 +113,9 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "postinstall": "node scripts/ollama-ensure-model.mjs",
+    "setup:ollama": "node scripts/ollama-ensure-model.mjs"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
