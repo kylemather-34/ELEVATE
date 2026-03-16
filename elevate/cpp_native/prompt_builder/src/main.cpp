@@ -7,9 +7,15 @@ using namespace std;
 using json = nlohmann::json;
 
 int main(int argc, char *argv[]){
-    string inputFile = "../../parser/parserOutput.json"; // Will likely need to be updated
+    if (argc < 3) {
+        cerr << "Usage: prompt_builder <input.json> <output.txt>\n";
+        return 1;
+    }
 
-    // Open the text file
+    string inputFile = argv[1];
+    string outputFile = argv[2];
+
+    // Open the input file
     ifstream inFile(inputFile);
     if (!inFile.is_open())
     {
@@ -25,7 +31,7 @@ int main(int argc, char *argv[]){
     string hints = "Hints:\nTrack nested blocks using indentation\nLook for deeply nested logic\n\n";
     string outputFormat = "Output format:\n1. Structural summary\n2. Potential issues\n3. Complexity observations\n4. Suggested improvements";
 
-    ofstream outFile("ai_input.txt");
+    ofstream outFile(outputFile);
     if (!outFile.is_open()){
         cerr << "Error: could not open output file\n";
         return 1;
