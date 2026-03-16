@@ -20,10 +20,10 @@ int main(int argc, char *argv[]){
     inFile >> parsedData;
 
     string role = "Role:\nYou are an AI specialized in analyzing Python program structure.\n\n";
-    string context = "Context:\nThe following JSON describeds the structural block events extracted from a Python program.\n\n";
+    string context = "Context:\nThe following JSON describes the structural block events extracted from a Python program.\n\n";
     string task = "Task:\nAnalyze the program structure.\n\n";
     string hints = "Hints:\nTrack nested blocks using indentation\nLook for deeply nested logic\n\n";
-    string outputFormat = "Output format:\n1. Structural summary\n2. Potencial issues\n3. Complexity observations\n 4. Suggested improvements";
+    string outputFormat = "Output format:\n1. Structural summary\n2. Potential issues\n3. Complexity observations\n4. Suggested improvements";
 
     ofstream outFile("ai_input.txt");
     if (!outFile.is_open()){
