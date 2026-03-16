@@ -4,9 +4,9 @@ project(prompt_builder)
 add_executable(prompt_builder src/main.cpp)
 
 # Link shared utilities
-target_link_libraries(parser PRIVATE cpp_utils)
+target_link_libraries(prompt_builder PRIVATE cpp_utils)
 
 # Output all executables to bin/
-set_target_properties(parser PROPERTIES
+set_target_properties(prompt_builder PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
