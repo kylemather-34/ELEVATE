@@ -1,2 +1,10 @@
+# Node/VSCode
 node_modules/
+.vscode-test/
+
+# Typescript
 dist/
+out/
+
+# C++ build artifacts
+cpp_native/build/
