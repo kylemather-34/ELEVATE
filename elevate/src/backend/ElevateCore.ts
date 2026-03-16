@@ -36,7 +36,7 @@ export class ElevateBackend {
 
     this.logger = new Logger();
     this.pipeline = new Pipeline(
-      [new SanitizationStage(), new ParseStage(), new PromptBuilderStage(), new OllamaStage()],
+      [new SanitizationStage(), new ParseStage(), new PromptBuilderStage(), new OllamaStage(this.ollama)],
       this.logger
     );
   }

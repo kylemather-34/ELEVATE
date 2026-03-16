@@ -2,12 +2,6 @@ import { ElevateContext } from "../backend/ElevateContext";
 import * as stage from "./Stage";
 import { Logger } from "../Logger";
 
-const stages = [
-    new stage.SanitizationStage(),
-    new stage.ParseStage(),
-    new stage.PromptBuilderStage(),
-    new stage.OllamaStage()
-];
 
 export class Pipeline {
     private stages: stage.Stage[];
