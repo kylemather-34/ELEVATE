@@ -3,6 +3,9 @@ import { ElevateCore } from "./backend/ElevateCore";
 import { JobEvent, JobRecord, JobStatus } from "./backend/types";
 import { CursorTracker } from "./cursorTracker";
 import { EditListener } from "./editListener";
+import { Logger } from "./Logger";
+import { ElevateContext } from "./backend/ElevateContext";
+import { ExtensionController } from "./extension/ExtensionController";
 
 let backend: ElevateCore | undefined;
 
@@ -10,8 +13,8 @@ export async function activate(context: vscode.ExtensionContext) {
   const output = vscode.window.createOutputChannel("ELEVATE");
   context.subscriptions.push(output);
 
-  output.appendLine("[ELEVATE] Activating…");
-
+  const logger = new Logger();
+  output.appendLine("[ELEVATE] Activating...");
 
   backend = new ElevateCore(context, output);
 
@@ -22,9 +25,12 @@ export async function activate(context: vscode.ExtensionContext) {
   } catch (err: any) {
     output.appendLine(`[ELEVATE] Backend failed to start: ${err?.message ?? String(err)}`);
     vscode.window.showWarningMessage(
-      "ELEVATE backend failed to start. Run “ELEVATE: Backend Status” for details."
+      "ELEVATE backend failed to start. Run \"ELEVATE: Backend Status\" for details."
     );
   }
+
+  const controller = new ExtensionController(backend);
+  controller.activateOpenFileListener(context);
 
   const cfg = vscode.workspace.getConfiguration("elevate");
 
@@ -37,11 +43,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const fsWatcherEnabled = cfg.get<boolean>("fileWatcher.enabled", false);
   const fsWatcherGlob = cfg.get<string>("fileWatcher.glob", "**/*");
 
-  const cursorTracker = new CursorTracker(
-    // Minimal logger adapter to match your existing output channel usage
-    { info: (msg: string) => output.appendLine(msg) } as any,
-    false
-  );
+  const cursorTracker = new CursorTracker(logger, false);
 
   if (cursorEnabled) {
     cursorTracker.start();
@@ -51,15 +53,19 @@ export async function activate(context: vscode.ExtensionContext) {
   }
   context.subscriptions.push(cursorTracker);
 
-  const editListener = new EditListener(
-    { info: (msg: string) => output.appendLine(msg) } as any,
-    {
-      debounceMs,
-      maxWaitMs,
-      fsWatcherEnabled,
-      fsWatcherGlob,
-    }
-  );
+  const editListener = new EditListener(logger, {
+    debounceMs,
+    maxWaitMs,
+    fsWatcherEnabled,
+    fsWatcherGlob,
+    onEdit: (doc) => {
+      if (!backend) { return; }
+      const ctx = new ElevateContext(doc);
+      backend.runPipeline(ctx).catch((err) =>
+        output.appendLine(`[ELEVATE] Pipeline error: ${err?.message ?? String(err)}`)
+      );
+    },
+  });
 
   if (editEnabled) {
     editListener.start();

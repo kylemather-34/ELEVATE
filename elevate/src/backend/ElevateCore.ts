@@ -11,6 +11,7 @@ import { Pipeline } from "../pipeline/Pipeline";
 import { SanitizationStage, ParseStage, PromptBuilderStage, OllamaStage } from "../pipeline/Stage";
 import { Logger } from "../Logger";
 import { ElevateContext } from "./ElevateContext";
+import * as path from "path";
 
 export class ElevateCore {
   private server: HttpServer | null = null;
@@ -34,9 +35,11 @@ export class ElevateCore {
     this.ollama = new OllamaClient(ollamaUrl);
     this.queue = new JobQueue(this.store, this.hub, this.ollama, { concurrency });
 
+    const parserBin = path.join(context.extensionUri.fsPath, "cpp_native", "build", "bin", "parser");
+
     this.logger = new Logger();
     this.pipeline = new Pipeline(
-      [new SanitizationStage(), new ParseStage(), new PromptBuilderStage(), new OllamaStage()],
+      [new SanitizationStage(), new ParseStage(parserBin), new PromptBuilderStage(), new OllamaStage()],
       this.logger
     );
   }

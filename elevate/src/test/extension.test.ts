@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { ElevateContext } from '../backend/ElevateContext';
 import { Pipeline } from '../pipeline/Pipeline';
-import { SanitizationStage, ParseStage, PromptBuilderStage } from '../pipeline/Stage';
+import { SanitizationStage, PromptBuilderStage } from '../pipeline/Stage';
 import { Logger } from '../Logger';
 
 suite('Extension Test Suite', () => {
@@ -12,7 +12,7 @@ suite('Extension Test Suite', () => {
 		const ctx = new ElevateContext("test context");
 		const logger = new Logger();
 		const pipeline = new Pipeline(
-			[new SanitizationStage(), new ParseStage(), new PromptBuilderStage()],
+			[new SanitizationStage(), new PromptBuilderStage()],
 			logger
 		);
 		await assert.doesNotReject(() => pipeline.execute(ctx));
