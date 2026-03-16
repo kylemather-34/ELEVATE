@@ -1,21 +1,21 @@
 import * as assert from 'assert';
-
-// You can import and use all API from the 'vscode' module
-// as well as import your extension to test it
 import * as vscode from 'vscode';
-import { ElevateCore } from '../core/ElevateCore';
-import { ElevateContext } from '../core/ElevateContext';
-// import * as myExtension from '../../extension';
+import { ElevateContext } from '../backend/ElevateContext';
+import { Pipeline } from '../pipeline/Pipeline';
+import { SanitizationStage, ParseStage, PromptBuilderStage } from '../pipeline/Stage';
+import { Logger } from '../Logger';
 
 suite('Extension Test Suite', () => {
-	const core = new ElevateCore();
-
-	let ctx = new ElevateContext("test context");
-
 	vscode.window.showInformationMessage('Start all tests.');
 
-	test('Pipeline logger test', () => {
-		core.executePipeline(ctx);
+	test('Pipeline runs without throwing on empty stages', async () => {
+		const ctx = new ElevateContext("test context");
+		const logger = new Logger();
+		const pipeline = new Pipeline(
+			[new SanitizationStage(), new ParseStage(), new PromptBuilderStage()],
+			logger
+		);
+		await assert.doesNotReject(() => pipeline.execute(ctx));
 	});
 });
 
