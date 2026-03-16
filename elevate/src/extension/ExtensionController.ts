@@ -1,8 +1,11 @@
 import * as vscode from 'vscode';
 import { ElevateContext } from '../backend/ElevateContext';
 import { ElevateCore } from '../backend/ElevateCore';
+import { Logger } from '../Logger';
+import { EditListener } from '../editListener';
 
 export class ExtensionController {
+    private logger = new Logger();
 
     constructor(private readonly backend: ElevateCore) {}
 
@@ -17,5 +20,20 @@ export class ExtensionController {
         );
 
         context.subscriptions.push(openFileListener);
+    }
+
+    public activeSaveListner(context: vscode.ExtensionContext): void {
+        const listener = new EditListener(this.logger, {
+            debounceMs: 0,  // no debouncing, immeditate
+            fsWatcherEnabled: false, //optional, skip file system watcher
+            onEdit: (doc) => {
+                const ctx = new ElevateContext(doc);
+                this.backend.runPipeline(ctx);
+                this.logger.info('[analysis] ran on save: ' + doc.uri.toString() + ' (version=' + doc.version + ')');
+            },
+        });
+
+        listener.start();
+        context.subscriptions.push(listener)
     }
 }

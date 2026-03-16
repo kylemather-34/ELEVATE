@@ -7,7 +7,7 @@ export interface EditListenerOptions {
   debounceMs: number;
   maxWaitMs?: number;
   fsWatcherEnabled: boolean;
-  fsWatcherGlob: string;
+  fsWatcherGlob?: string;
   onEdit?: (doc: vscode.TextDocument) => void;
 }
 
@@ -68,6 +68,9 @@ export class EditListener implements vscode.Disposable {
 
     // Ensure pending work runs on save so output aligns with disk state
     this.debouncer.flush(key);
+
+    // Trigger immediate onEdit callback for saves
+    this.opts.onEdit?.(doc);
 
     this.logger.info(`[save] ${doc.uri.toString()} (version=${doc.version})`);
   }
