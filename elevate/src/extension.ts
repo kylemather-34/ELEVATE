@@ -13,7 +13,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const output = vscode.window.createOutputChannel("ELEVATE");
   context.subscriptions.push(output);
 
-  const logger = new Logger();
+  const logger = new Logger(output);
   output.appendLine("[ELEVATE] Activating...");
 
   backend = new ElevateCore(context, output);
