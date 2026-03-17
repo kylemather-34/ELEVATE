@@ -22,6 +22,7 @@ export class JobQueue {
   private controllers = new Map<string, AbortController>();
   private inMemoryJobs = new Map<string, JobRecord>();
   private activeByKey = new Map<string, string>(); // optional: key -> job_id for active jobs with that key (to enforce single active per key)
+  private fileVersions = new Map<string, number>();
 
   constructor(
     private readonly store: JobStore,
@@ -29,6 +30,10 @@ export class JobQueue {
     private readonly ollama: OllamaClient,
     private readonly cfg: QueueConfig
   ) {}
+
+  setFileVersion(key: string, version: number) {
+    this.fileVersions.set(key, version);
+  }
 
   async start(): Promise<void> {
     this.running = true;
@@ -91,6 +96,7 @@ export class JobQueue {
     model: string;
     messages: ChatMessage[];
     analysis_key?: string; // optional: if provided, will ensure only one active job with the same key (cancels previous)
+    version?: number;
     keep_alive?: string;
     options?: Record<string, any>;
   }): Promise<JobRecord> {
@@ -113,6 +119,7 @@ export class JobQueue {
       priority: Math.max(0, Math.min(9, args.priority)),
       model: args.model,
       status: JobStatus.QUEUED,
+      version: args.version ?? 0,
       created_at: now,
       updated_at: now,
       started_at: null,
@@ -192,6 +199,12 @@ export class JobQueue {
       if (!job) continue;
 
       const key = job.payload?.analysis_key;
+
+      const knownVersion = key ? this.fileVersions.get(key) : undefined;
+      if (key && knownVersion !== undefined && job.version !== knownVersion) {
+        continue;
+      }
+
       if (key && this.activeByKey.get(key) !== job.job_id) {
       continue; // stale job — skip it
       }
@@ -223,9 +236,13 @@ export class JobQueue {
         })) {
         
           const currentKey = job.payload?.analysis_key;
-          if (currentKey && this.activeByKey.get(currentKey) !== job.job_id) {
-          controller.abort();
-          throw new Error("stale_job");
+          const currentVersion = currentKey ? this.fileVersions.get(currentKey) : undefined;
+          const versionStale = currentKey && currentVersion !== undefined && currentVersion !== job.version;
+          const keyStale = currentKey && this.activeByKey.get(currentKey) !== job.job_id;
+
+          if (versionStale || keyStale) {
+            controller.abort();
+            throw new Error("stale_job");
           }
 
           if (controller.signal.aborted) throw new Error("aborted");

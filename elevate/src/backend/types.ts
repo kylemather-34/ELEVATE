@@ -32,6 +32,8 @@ export interface JobRecord {
   model: string;
   status: JobStatus;
 
+  version: number;
+  
   created_at: string;
   updated_at: string;
   started_at?: string | null;
