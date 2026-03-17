@@ -1,1 +1,0 @@
-{"version":3,"file":"FileSnapshot.js","sourceRoot":"","sources":["../../src/backend/FileSnapshot.ts"],"names":[],"mappings":";;AAUA,4BAOC;AAPD,SAAgB,QAAQ,CAAC,GAAwB;IAC7C,OAAO;QACH,GAAG,EAAE,GAAG,CAAC,GAAG,CAAC,QAAQ,EAAE;QACvB,QAAQ,EAAE,GAAG,CAAC,UAAU;QACxB,OAAO,EAAE,GAAG,CAAC,OAAO;QACpB,IAAI,EAAE,GAAG,CAAC,OAAO,EAAE;KACtB,CAAC;AACN,CAAC"}

@@ -37,7 +37,7 @@ export class ElevateCore {
 
     const parserBin = path.join(context.extensionUri.fsPath, "cpp_native", "build", "bin", "parser");
 
-    this.logger = new Logger();
+    this.logger = new Logger(output);
     this.pipeline = new Pipeline(
       [new SanitizationStage(), new ParseStage(parserBin), new PromptBuilderStage(), new OllamaStage(this.ollama)],
       this.logger

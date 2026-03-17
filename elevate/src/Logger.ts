@@ -9,8 +9,10 @@ export class Logger implements vscode.Disposable {
     private debugEnabled: boolean;
     private logFilePath?: string;
 
-    constructor(name: string = "ELEVATE", debug: boolean = true, logFilePath?: string) {
-        this.channel = vscode.window.createOutputChannel(name);
+    constructor(nameOrChannel: string | vscode.OutputChannel = "ELEVATE", debug: boolean = true, logFilePath?: string) {
+        this.channel = typeof nameOrChannel === 'string'
+            ? vscode.window.createOutputChannel(nameOrChannel)
+            : nameOrChannel;
         this.debugEnabled = debug;
         this.logFilePath = logFilePath;
         this.channel.show(true);
