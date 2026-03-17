@@ -32,7 +32,7 @@ export interface JobRecord {
   model: string;
   status: JobStatus;
 
-  version?: number;
+  version: number;
   
   created_at: string;
   updated_at: string;

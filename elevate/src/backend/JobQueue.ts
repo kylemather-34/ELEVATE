@@ -200,7 +200,8 @@ export class JobQueue {
 
       const key = job.payload?.analysis_key;
 
-      if ( key && job.version !== this.fileVersions.get(key)) {
+      const knownVersion = key ? this.fileVersions.get(key) : undefined;
+      if (key && knownVersion !== undefined && job.version !== knownVersion) {
         continue;
       }
 
@@ -235,11 +236,13 @@ export class JobQueue {
         })) {
         
           const currentKey = job.payload?.analysis_key;
-          const currentVersion = this.fileVersions.get(currentKey);
+          const currentVersion = currentKey ? this.fileVersions.get(currentKey) : undefined;
+          const versionStale = currentKey && currentVersion !== undefined && currentVersion !== job.version;
+          const keyStale = currentKey && this.activeByKey.get(currentKey) !== job.job_id;
 
-          if (currentKey && currentVersion !== job.version) {
-          controller.abort();
-          throw new Error("stale_job");
+          if (versionStale || keyStale) {
+            controller.abort();
+            throw new Error("stale_job");
           }
 
           if (controller.signal.aborted) throw new Error("aborted");
