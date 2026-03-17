@@ -22,9 +22,9 @@ export class ExtensionController {
         context.subscriptions.push(openFileListener);
     }
 
-    public activeSaveListner(context: vscode.ExtensionContext): void {
+    public activateSaveListener(context: vscode.ExtensionContext): void {
         const listener = new EditListener(this.logger, {
-            debounceMs: 0,  // no debouncing, immeditate
+            debounceMs: 0,  // no debouncing, immediate
             fsWatcherEnabled: false, //optional, skip file system watcher
             onEdit: (doc) => {
                 const ctx = new ElevateContext(doc);
@@ -34,6 +34,6 @@ export class ExtensionController {
         });
 
         listener.start();
-        context.subscriptions.push(listener)
+        context.subscriptions.push(listener);
     }
 }
