@@ -6,12 +6,7 @@ export interface BlockEvent {
     text: string;
 }
 
-export interface ActiveBlock {
-    type: string;
-    line: number;
-    indent: number;
-    text: string;
-}
+export type ActiveBlock = Omit<BlockEvent, 'event'>;
 
 export interface ParserError {
     message: string;
@@ -21,7 +16,7 @@ export interface ParserError {
 
 export interface ParserOutput {
     fileVersion: number;
-    activelock: ActiveBlock | null;
+    activeBlock: ActiveBlock | null;
     nestingPath: ActiveBlock[];
     errors: ParserError[];
 }
