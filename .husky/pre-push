@@ -1,1 +1,1 @@
-cd elevate && npm test
+. "$HOME/.nvm/nvm.sh" && nvm use --silent && cd elevate && npm test
