@@ -1,3 +1,4 @@
+// Summary of file in push commenets.
 import { FileSnapshot } from './FileSnapshot';
 
 export interface Feedback {

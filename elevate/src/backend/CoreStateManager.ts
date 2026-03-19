@@ -14,7 +14,7 @@ export class CoreStateManager {
         this.initialized = true;
     }
 
-    public getSession(): SessionContext {   // ADD THIS
+    public getSession(): SessionContext {
         return this.session;
     }
 
