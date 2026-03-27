@@ -1,6 +1,8 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
 import { access } from 'fs/promises';
 import { ElevateContext } from '../backend/ElevateContext';
 import { CoreStateManager } from '../backend/CoreStateManager';
@@ -97,13 +99,10 @@ suite('Pipeline', () => {
         assert.deepStrictEqual(ran, ['good']);
     });
 
-    test('runs without throwing on stubbed stages', async () => {
+    test('runs without throwing on SanitizationStage alone', async () => {
         const ctx = new ElevateContext('test context');
         const logger = new Logger('test', false);
-        const pipeline = new Pipeline(
-            [new SanitizationStage(), new PromptBuilderStage()],
-            logger
-        );
+        const pipeline = new Pipeline([new SanitizationStage()], logger);
         await assert.doesNotReject(() => pipeline.execute(ctx));
     });
 });
@@ -221,6 +220,33 @@ suite('ParseStage (integration)', () => {
         await stage.run(ctx);
         assert.ok(Array.isArray(ctx.parsed), 'ctx.parsed should be an array');
         assert.ok(ctx.parsed!.length > 0, 'ctx.parsed should contain at least one event');
+    });
+});
+
+suite('PromptBuilderStage (integration)', () => {
+    const promptBuilderBin = path.resolve(__dirname, '../../cpp_native/build/bin/prompt_builder');
+    const parserBin = path.resolve(__dirname, '../../cpp_native/build/bin/parser');
+
+    test('throws when ctx.parsed is not set', async () => {
+        const stage = new PromptBuilderStage(promptBuilderBin);
+        const ctx = new ElevateContext('def foo(): pass');
+        await assert.rejects(() => stage.run(ctx), /ctx.parsed is not set/);
+    });
+
+    test('populates ctx.prompt from real parser output', async () => {
+        try {
+            await access(promptBuilderBin);
+        } catch {
+            console.log('PromptBuilderStage test skipped: binary not found');
+            return;
+        }
+
+        const ctx = new ElevateContext('def add(a, b):\n    return a + b\n');
+        await new ParseStage(parserBin).run(ctx);
+        await new PromptBuilderStage(promptBuilderBin).run(ctx);
+
+        assert.ok(Array.isArray(ctx.prompt) && ctx.prompt!.length > 0, 'ctx.prompt should be set');
+        assert.ok(ctx.prompt![0].content.includes('Role:'), 'prompt should include Role section from prompt_builder');
     });
 });
 
