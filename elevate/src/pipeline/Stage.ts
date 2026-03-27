@@ -59,8 +59,40 @@ export class ParseStage implements Stage {
 
 export class PromptBuilderStage implements Stage {
     name = "Prompt Builder Stage";
-    async run(ctx: ElevateContext): Promise<void> {
 
+    constructor(private readonly binPath: string) {}
+
+    async run(ctx: ElevateContext): Promise<void> {
+        if (!ctx.parsed) {
+            throw new Error("PromptBuilderStage: ctx.parsed is not set — ParseStage must run first");
+        }
+
+        const inputPath = path.join(os.tmpdir(), `elevate_prompt_in_${Date.now()}.json`);
+        const outputPath = path.join(os.tmpdir(), `elevate_prompt_out_${Date.now()}.txt`);
+
+        // Write the parser JSON output to a temp file for the binary to read
+        await writeFile(inputPath, JSON.stringify(ctx.parsed), "utf-8");
+
+        await new Promise<void>((resolve, reject) => {
+            const proc = spawn(this.binPath, [inputPath, outputPath]);
+            let stderr = "";
+            proc.stderr.on("data", (d) => (stderr += d.toString()));
+            proc.on("close", (code) => {
+                if (code !== 0) {
+                    reject(new Error(`PromptBuilder exited with code ${code}: ${stderr}`));
+                } else {
+                    resolve();
+                }
+            });
+            proc.on("error", reject);
+        });
+
+        const promptText = await readFile(outputPath, "utf-8");
+
+        ctx.prompt = [{ role: "user", content: promptText }];
+
+        await unlink(inputPath).catch(() => {});
+        await unlink(outputPath).catch(() => {});
     }
 }
 
