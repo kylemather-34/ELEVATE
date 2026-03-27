@@ -21,8 +21,8 @@ A VS Code extension that integrates local LLMs (via [Ollama](https://ollama.com)
 | Requirement | Minimum Version |
 |---|---|
 | VS Code | 1.109.0 |
-| Node.js | 18.x |
-| npm | 9.x |
+| Node.js | 20.x (LTS recommended) |
+| npm | 10.x |
 | CMake | 3.20 |
 | C++ compiler (GCC or Clang) | C++17 support required |
 | Ollama | Latest stable |
@@ -38,7 +38,27 @@ git clone <repo-url>
 cd elevate
 ```
 
-### 2. Install Node dependencies
+### 2. Install Node.js 20 via nvm
+
+We use [nvm](https://github.com/nvm-sh/nvm) to manage Node versions. Install it if you haven't:
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+```
+
+Restart your terminal, then install and use Node 20:
+
+```bash
+nvm install 20
+nvm use 20
+```
+
+Verify:
+```bash
+node --version  # should print v20.x.x
+```
+
+### 3. Install Node dependencies
 
 ```bash
 npm install
@@ -46,7 +66,9 @@ npm install
 
 > During `npm install`, a postinstall script runs automatically to check if Ollama and the default model (`llama3.2:3b`) are available. It will print instructions if anything is missing — it will not fail the install.
 
-### 3. Install Ollama
+> `npm install` also installs [Husky](https://typicode.github.io/husky/), which sets up a pre-push git hook that runs `npm test` before every push. **Tests must pass before code can be pushed.**
+
+### 4. Install Ollama
 
 Ollama runs the LLM locally. Download and install it for your platform:
 
@@ -81,7 +103,7 @@ Verify Ollama is running:
 ollama list
 ```
 
-### 4. Pull the default model
+### 5. Pull the default model
 
 ELEVATE uses `llama3.2:3b` by default — a lightweight 3B-parameter model that runs well on most machines.
 
@@ -102,7 +124,7 @@ ollama pull llama3.2:8b   # larger, more capable
 ollama pull mistral        # alternative model
 ```
 
-### 5. Build the C++ native components
+### 6. Build the C++ native components
 
 ELEVATE ships two native C++ binaries that must be compiled before running the extension:
 
@@ -147,7 +169,7 @@ cpp_native/build/bin/parser
 cpp_native/build/bin/prompt_builder
 ```
 
-### 6. Compile the extension
+### 7. Compile the extension
 
 ```bash
 npm run compile
@@ -155,7 +177,7 @@ npm run compile
 
 This type-checks, lints, and bundles the TypeScript source into `dist/extension.js`.
 
-### 7. Run the extension in development
+### 8. Run the extension in development
 
 Open the project in VS Code and press `F5` to launch the Extension Development Host. This opens a new VS Code window with ELEVATE loaded.
 
