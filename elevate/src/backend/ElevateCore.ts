@@ -42,6 +42,23 @@ export class ElevateCore {
       [new SanitizationStage(), new ParseStage(parserBin), new PromptBuilderStage(), new OllamaStage(this.ollama)],
       this.logger
     );
+
+    // keep file versions on updated save
+    vscode.workspace.onDidSaveTextDocument((doc) => {
+      const key = this.getFileKey(doc);
+      this.queue.setFileVersion(key, doc.version);
+    });
+
+    // optional, tracks live edits
+    vscode.workspace.onDidChangeTextDocument((e) => {
+      const key = this.getFileKey(e.document);
+      this.queue.setFileVersion(key, e.document.version);
+    });
+  }
+
+  // unique key per file
+  private getFileKey(doc: vscode.TextDocument): string {
+    return doc.uri.toString();
   }
 
   async start(): Promise<void> {
@@ -86,12 +103,26 @@ export class ElevateCore {
         return HttpServer.json(res, 400, { error: "bad_request", message: "Only OLLAMA_CHAT supported in MVP" });
       }
 
+      // get active document
+      const activeEditor = vscode.window.activeTextEditor;
+      const doc = activeEditor?.document;
+
+      const fileKey = doc ? this.getFileKey(doc) : body.payload?.analysis_key;
+      const version = doc?.version ?? body.version ?? 0;
+
+      // update latest version in queue
+      if (fileKey) {
+        this.queue.setFileVersion(fileKey, version);
+      }
+
       const job = await this.queue.enqueueChatJob({
         priority: body.priority ?? 5,
         model: body.model,
         messages: body.payload?.messages ?? [],
         keep_alive: body.keep_alive ?? "5m",
         options: body.options ?? {},
+        analysis_key: fileKey,
+        version: version
       });
 
       HttpServer.json(res, 202, { job_id: job.job_id, status: job.status, created_at: job.created_at });
