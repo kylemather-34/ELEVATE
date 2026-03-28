@@ -1,3 +1,5 @@
+import * as vscode from "vscode";
+
 // Final JSON structure (what gets stored)
 export interface Settings {
   theme: "light" | "dark";
@@ -19,6 +21,8 @@ const DEFAULT_SETTINGS: Settings = {
   language: "en",
 };
 
+const SETTINGS_KEY = "myExtension.settings";
+
 // Main builder function
 export function buildSettings(input: RawSettings): Settings {
   return {
@@ -26,6 +30,14 @@ export function buildSettings(input: RawSettings): Settings {
     notificationsEnabled: normalizeBoolean(input.notificationsEnabled),
     language: normalizeLanguage(input.language),
   };
+}
+
+// --- Storage functions ---
+export async function saveSettings (
+  context: vscode.ExtensionContext,
+  settings: Settings
+): Promise<void>{
+  await context.globalState.update(SETTINGS_KEY, settings);
 }
 
 // --- Helper functions ---
