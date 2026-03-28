@@ -40,6 +40,13 @@ export async function saveSettings (
   await context.globalState.update(SETTINGS_KEY, settings);
 }
 
+export function loadSettings (
+  context: vscode.ExtensionContext
+): Settings {
+  const raw = context.globalState.get<RawSettings>(SETTINGS_KEY, {});
+  return buildSettings(raw);
+  }
+
 // --- Helper functions ---
 
 function normalizeTheme(value: unknown): "light" | "dark" {
