@@ -103,7 +103,7 @@ namespace Parser
             while (!blockStack.empty() && indentLevel < blockStack.top().indentLevel)
             {
                 BlockEvent endEvent;
-                endEvent.isStart = false;
+                endEvent.kind = EventKind::END;
                 endEvent.type = blockStack.top().type;
                 endEvent.lineNumber = lineNumber;
                 endEvent.indentLevel = indentLevel;
@@ -127,7 +127,7 @@ namespace Parser
                 BlockType detectedType = detectType(line);
 
                 BlockEvent startEvent;
-                startEvent.isStart = true;
+                startEvent.kind = EventKind::START;
                 startEvent.type = detectType(line);
                 startEvent.lineNumber = lineNumber;
                 startEvent.indentLevel = indentLevel;
@@ -137,13 +137,24 @@ namespace Parser
 
                 blockStack.push({detectedType, indentLevel}); // Push only tracking information
             }
+            else
+            {
+                BlockEvent lineEvent;
+                lineEvent.kind = EventKind::LINE;
+                lineEvent.type = BlockType::UNKNOWN;
+                lineEvent.lineNumber = lineNumber;
+                lineEvent.indentLevel = indentLevel;
+                lineEvent.lineText = trimmed;
+
+                events.push_back(lineEvent);
+            }
         }
 
         // Close remaining blocks at EOF(End-Of-File)
         while (!blockStack.empty())
         {
             BlockEvent endEvent;
-            endEvent.isStart = false;
+            endEvent.kind = EventKind::END;
             endEvent.type = blockStack.top().type;
             endEvent.lineNumber = lineNumber;
             endEvent.indentLevel = 0;

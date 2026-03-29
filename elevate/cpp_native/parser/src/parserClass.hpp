@@ -24,10 +24,18 @@ enum class BlockType
     UNKNOWN
 };
 
+//Type of event
+enum class EventKind
+{
+    START,
+    END,
+    LINE
+};
+
 // Block structure
 struct BlockEvent
 {
-    bool isStart; // true = start, false = end
+    EventKind kind;
     BlockType type;
     int lineNumber;
     int indentLevel;
