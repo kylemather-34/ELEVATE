@@ -1,7 +1,7 @@
 project(prompt_builder)
 
 # Create executable
-add_executable(prompt_builder src/main.cpp)
+add_executable(prompt_builder src/template.cpp)
 
 # Link shared utilities
 target_link_libraries(parser PRIVATE cpp_utils)
