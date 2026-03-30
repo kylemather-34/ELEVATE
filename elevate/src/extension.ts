@@ -6,6 +6,7 @@ import { EditListener } from "./editListener";
 import { Logger } from "./Logger";
 import { ElevateContext } from "./backend/ElevateContext";
 import { ExtensionController } from "./extension/ExtensionController";
+import { loadSettings } from "./backend/StorageLayer";
 
 let backend: ElevateCore | undefined;
 
@@ -17,6 +18,10 @@ export async function activate(context: vscode.ExtensionContext) {
   output.appendLine("[ELEVATE] Activating...");
 
   backend = new ElevateCore(context, output);
+
+  // Load persisted settings on activation
+  const settings = loadSettings(context);
+  output.appendLine("[ELEVATE Loaded Settings: " + JSON.stringify(settings));
 
   // Start backend on activation, but don't crash activation if it fails.
   try {
