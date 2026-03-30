@@ -48,6 +48,7 @@ export class ExtensionController implements vscode.Disposable {
 
                 this.logger.info(`[analysis] started for: ${document.uri.toString()}`);
                 const ctx = new ElevateContext(document);
+                ctx.cursorLine = vscode.window.activeTextEditor?.selection.active.line;
 
                 try {
                     await this.backend.runPipeline(ctx);
@@ -86,6 +87,7 @@ export class ExtensionController implements vscode.Disposable {
             onEdit: async (doc) => {
                 this.logger.info(`[analysis] started on save: ${doc.uri.toString()} (version=${doc.version})`);
                 const ctx = new ElevateContext(doc);
+                ctx.cursorLine = vscode.window.activeTextEditor?.selection.active.line;
 
                 try {
                     await this.backend.runPipeline(ctx);
