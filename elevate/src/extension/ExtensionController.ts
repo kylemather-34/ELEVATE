@@ -23,6 +23,8 @@ export class ExtensionController implements vscode.Disposable {
     // to receive analysis results without needing to know how they were produced.
     public readonly onAnalysisComplete = this._onAnalysisComplete.event;
 
+    private statusBar?: vscode.StatusBarItem;
+
     constructor(
         private readonly backend: ElevateCore,
         private readonly logger: Logger,
@@ -32,12 +34,24 @@ export class ExtensionController implements vscode.Disposable {
     // Fires onAnalysisComplete so all subscribers are notified.
     // Next sprint: add response panel update and diagnostics/squiggles here.
     private handleAnalysisComplete(result: AnalysisResult): void {
+        this.logger.info(`[analysis] complete for: ${result.uri} (${result.modelResponse.length} chars)`);
         this._onAnalysisComplete.fire(result);
         // TODO next sprint: update response panel, push diagnostics/squiggles
     }
 
     public dispose(): void {
         this._onAnalysisComplete.dispose();
+    }
+
+    public activateStatusBar(context: vscode.ExtensionContext): void {
+        this.statusBar = vscode.window.createStatusBarItem(
+            vscode.StatusBarAlignment.Right,
+            100
+        );
+        if (this.statusBar) this.statusBar.text ='$(circle-outline) Elevate: Idle';
+        this.statusBar.tooltip = 'Elevate pipeline status';
+        this.statusBar.show();
+        context.subscriptions.push(this.statusBar);
     }
 
     public activateOpenFileListener(context: vscode.ExtensionContext): void {
@@ -47,17 +61,20 @@ export class ExtensionController implements vscode.Disposable {
                 if (document.uri.scheme !== 'file') return;
 
                 this.logger.info(`[analysis] started for: ${document.uri.toString()}`);
+                if (this.statusBar) this.statusBar.text ='$(sync~spin) Elevate: Analyzing...';
                 const ctx = new ElevateContext(document);
                 ctx.cursorLine = vscode.window.activeTextEditor?.selection.active.line;
 
                 try {
                     await this.backend.runPipeline(ctx);
                 } catch (err: any) {
+                    if (this.statusBar) this.statusBar.text ='$(error) Elevate: Failed';
                     this.logger.error(`[analysis] pipeline error: ${err?.message ?? String(err)}`);
                     return;
                 }
 
                 if (ctx.modelResponse) {
+                    if (this.statusBar) this.statusBar.text ='$(check) Elevate: Done';
                     this.logger.logResponseFinal(ctx.modelResponse);
                     this.handleAnalysisComplete({
                         uri: ctx.snapshot?.uri ?? document.uri.toString(),
@@ -65,11 +82,11 @@ export class ExtensionController implements vscode.Disposable {
                         snapshot: ctx.snapshot,
                     });
                 } else {
+                    if (this.statusBar) this.statusBar.text ='$(circle-outline) Elevate: Idle';
                     this.logger.info('[analysis] pipeline completed with no model response.');
                 }
             }
         );
-
         context.subscriptions.push(openFileListener);
     }
 
@@ -86,17 +103,20 @@ export class ExtensionController implements vscode.Disposable {
             fsWatcherGlob: options.fsWatcherGlob,
             onEdit: async (doc) => {
                 this.logger.info(`[analysis] started on save: ${doc.uri.toString()} (version=${doc.version})`);
+                if (this.statusBar) this.statusBar.text ='$(sync~spin) Elevate: Analyzing...';
                 const ctx = new ElevateContext(doc);
                 ctx.cursorLine = vscode.window.activeTextEditor?.selection.active.line;
 
                 try {
                     await this.backend.runPipeline(ctx);
                 } catch (err: any) {
+                    if (this.statusBar) this.statusBar.text ='$(error) Elevate: Failed';
                     this.logger.error(`[analysis] pipeline error: ${err?.message ?? String(err)}`);
                     return;
                 }
 
                 if (ctx.modelResponse) {
+                    if (this.statusBar) this.statusBar.text ='$(check) Elevate: Done';
                     this.logger.logResponseFinal(ctx.modelResponse);
                     this.handleAnalysisComplete({
                         uri: ctx.snapshot?.uri ?? doc.uri.toString(),
@@ -104,11 +124,11 @@ export class ExtensionController implements vscode.Disposable {
                         snapshot: ctx.snapshot,
                     });
                 } else {
+                    if (this.statusBar) this.statusBar.text ='$(circle-outline) Elevate: Idle';
                     this.logger.info('[analysis] pipeline completed with no model response.');
                 }
             },
         });
-
         listener.start();
         context.subscriptions.push(listener);
     }
