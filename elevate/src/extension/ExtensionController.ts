@@ -48,6 +48,7 @@ export class ExtensionController implements vscode.Disposable {
 
                 this.logger.info(`[analysis] started for: ${document.uri.toString()}`);
                 const ctx = new ElevateContext(document);
+                ctx.cursorLine = vscode.window.activeTextEditor?.selection.active.line;
 
                 try {
                     await this.backend.runPipeline(ctx);
@@ -72,13 +73,21 @@ export class ExtensionController implements vscode.Disposable {
         context.subscriptions.push(openFileListener);
     }
 
-    public activateSaveListener(context: vscode.ExtensionContext): void {
+    public activateSaveListener(context: vscode.ExtensionContext, options: {
+        debounceMs?: number;
+        maxWaitMs?: number;
+        fsWatcherEnabled?: boolean;
+        fsWatcherGlob?: string;
+    } = {}): void {
         const listener = new EditListener(this.logger, {
-            debounceMs: 0,
-            fsWatcherEnabled: false,
+            debounceMs: options.debounceMs ?? 0,
+            maxWaitMs: options.maxWaitMs,
+            fsWatcherEnabled: options.fsWatcherEnabled ?? false,
+            fsWatcherGlob: options.fsWatcherGlob,
             onEdit: async (doc) => {
                 this.logger.info(`[analysis] started on save: ${doc.uri.toString()} (version=${doc.version})`);
                 const ctx = new ElevateContext(doc);
+                ctx.cursorLine = vscode.window.activeTextEditor?.selection.active.line;
 
                 try {
                     await this.backend.runPipeline(ctx);

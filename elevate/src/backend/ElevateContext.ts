@@ -27,6 +27,9 @@ export class ElevateContext {
     // Response from Ollama
     modelResponse?: string;
 
+    // Cursor line (0-based) at the time analysis was triggered
+    cursorLine?: number;
+
     // compiler error/warnings
     diagnostics?: vscode.Diagnostic[];
 
