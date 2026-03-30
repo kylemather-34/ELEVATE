@@ -60,6 +60,7 @@ export async function activate(context: vscode.ExtensionContext) {
     fsWatcherGlob,
     onEdit: (doc) => {
       if (!backend) { return; }
+      if (doc.uri.scheme !== 'file') { return; }
       const ctx = new ElevateContext(doc);
       backend.runPipeline(ctx).catch((err) =>
         output.appendLine(`[ELEVATE] Pipeline error: ${err?.message ?? String(err)}`)

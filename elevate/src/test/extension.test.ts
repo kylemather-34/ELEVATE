@@ -1,6 +1,8 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
 import { access } from 'fs/promises';
 import { ElevateContext } from '../backend/ElevateContext';
 import { CoreStateManager } from '../backend/CoreStateManager';
@@ -71,7 +73,7 @@ suite('Pipeline', () => {
 
         const makeStage = (n: number): Stage => ({
             name: `stage-${n}`,
-            run: async (_ctx) => { order.push(n); }
+            run: async (_ctx, _logger) => { order.push(n); }
         });
 
         const logger = new Logger('test', false);
@@ -85,9 +87,9 @@ suite('Pipeline', () => {
     test('stops execution and throws when a stage fails', async () => {
         const ran: string[] = [];
 
-        const good: Stage = { name: 'good', run: async () => { ran.push('good'); } };
-        const bad: Stage = { name: 'bad', run: async () => { throw new Error('stage failed'); } };
-        const after: Stage = { name: 'after', run: async () => { ran.push('after'); } };
+        const good: Stage = { name: 'good', run: async (_ctx, _logger) => { ran.push('good'); } };
+        const bad: Stage = { name: 'bad', run: async (_ctx, _logger) => { throw new Error('stage failed'); } };
+        const after: Stage = { name: 'after', run: async (_ctx, _logger) => { ran.push('after'); } };
 
         const logger = new Logger('test', false);
         const pipeline = new Pipeline([good, bad, after], logger);
@@ -97,13 +99,10 @@ suite('Pipeline', () => {
         assert.deepStrictEqual(ran, ['good']);
     });
 
-    test('runs without throwing on stubbed stages', async () => {
+    test('runs without throwing on SanitizationStage alone', async () => {
         const ctx = new ElevateContext('test context');
         const logger = new Logger('test', false);
-        const pipeline = new Pipeline(
-            [new SanitizationStage(), new PromptBuilderStage()],
-            logger
-        );
+        const pipeline = new Pipeline([new SanitizationStage()], logger);
         await assert.doesNotReject(() => pipeline.execute(ctx));
     });
 });
@@ -164,11 +163,13 @@ suite('OllamaClient', () => {
 });
 
 suite('OllamaStage', () => {
+    const logger = new Logger('test', false);
+
     test('throws when ctx.prompt is not set', async () => {
         const mockClient = { chatStream: async function* () {} } as any as OllamaClient;
         const stage = new OllamaStage(mockClient);
         const ctx = new ElevateContext('test');
-        await assert.rejects(() => stage.run(ctx), /OllamaStage: no prompt set on context/);
+        await assert.rejects(() => stage.run(ctx, logger), /OllamaStage: no prompt set on context/);
     });
 
     test('throws when ctx.prompt is an empty array', async () => {
@@ -176,7 +177,7 @@ suite('OllamaStage', () => {
         const stage = new OllamaStage(mockClient);
         const ctx = new ElevateContext('test');
         ctx.prompt = [];
-        await assert.rejects(() => stage.run(ctx), /OllamaStage: no prompt set on context/);
+        await assert.rejects(() => stage.run(ctx, logger), /OllamaStage: no prompt set on context/);
     });
 
     test('accumulates chunk deltas into ctx.modelResponse', async () => {
@@ -189,7 +190,7 @@ suite('OllamaStage', () => {
         const stage = new OllamaStage(mockClient);
         const ctx = new ElevateContext('test');
         ctx.prompt = [{ role: 'user', content: 'analyze this' }];
-        await stage.run(ctx);
+        await stage.run(ctx, logger);
         assert.strictEqual(ctx.modelResponse, 'Hello world');
     });
 
@@ -202,12 +203,14 @@ suite('OllamaStage', () => {
         const stage = new OllamaStage(mockClient);
         const ctx = new ElevateContext('test');
         ctx.prompt = [{ role: 'user', content: 'hi' }];
-        await stage.run(ctx);
+        await stage.run(ctx, logger);
         assert.strictEqual(ctx.modelResponse, '');
     });
 });
 
 suite('ParseStage (integration)', () => {
+    const logger = new Logger('test', false);
+
     test('parses a minimal Python function and populates ctx.parsed', async () => {
         const parserBin = path.resolve(__dirname, '../../cpp_native/build/bin/parser');
         try {
@@ -218,9 +221,37 @@ suite('ParseStage (integration)', () => {
         }
         const stage = new ParseStage(parserBin);
         const ctx = new ElevateContext('def foo():\n    pass\n');
-        await stage.run(ctx);
+        await stage.run(ctx, logger);
         assert.ok(Array.isArray(ctx.parsed), 'ctx.parsed should be an array');
         assert.ok(ctx.parsed!.length > 0, 'ctx.parsed should contain at least one event');
+    });
+});
+
+suite('PromptBuilderStage (integration)', () => {
+    const logger = new Logger('test', false);
+    const promptBuilderBin = path.resolve(__dirname, '../../cpp_native/build/bin/prompt_builder');
+    const parserBin = path.resolve(__dirname, '../../cpp_native/build/bin/parser');
+
+    test('throws when ctx.parsed is not set', async () => {
+        const stage = new PromptBuilderStage(promptBuilderBin);
+        const ctx = new ElevateContext('def foo(): pass');
+        await assert.rejects(() => stage.run(ctx, logger), /ctx.parsed is not set/);
+    });
+
+    test('populates ctx.prompt from real parser output', async () => {
+        try {
+            await access(promptBuilderBin);
+        } catch {
+            console.log('PromptBuilderStage test skipped: binary not found');
+            return;
+        }
+
+        const ctx = new ElevateContext('def add(a, b):\n    return a + b\n');
+        await new ParseStage(parserBin).run(ctx, logger);
+        await new PromptBuilderStage(promptBuilderBin).run(ctx, logger);
+
+        assert.ok(Array.isArray(ctx.prompt) && ctx.prompt!.length > 0, 'ctx.prompt should be set');
+        assert.ok(ctx.prompt![0].content.includes('Role:'), 'prompt should include Role section from prompt_builder');
     });
 });
 
