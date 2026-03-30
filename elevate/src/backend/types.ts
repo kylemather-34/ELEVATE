@@ -20,9 +20,13 @@ export interface CreateChatJobRequest {
   type: "OLLAMA_CHAT";
   priority: number; // 0..9
   model: string;
-  payload: { messages: ChatMessage[] };
+  payload: { 
+    messages: ChatMessage[];
+    analysis_key?: string;
+   };
   options?: Record<string, any>;
   keep_alive?: string; // e.g. "5m"
+  version?: number;
 }
 
 export interface JobRecord {

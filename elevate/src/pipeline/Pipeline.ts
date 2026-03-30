@@ -19,7 +19,7 @@ export class Pipeline {
             
             try {
                 this.logger.info(`Running stage: ${stage.name}`);
-                await stage.run(ctx);
+                await stage.run(ctx, this.logger);
                 this.logger.info(`Completed stage: ${stage.name}`);
             } catch (error) {
 

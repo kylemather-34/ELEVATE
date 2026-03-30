@@ -7,6 +7,9 @@ export class ElevateContext {
     // File snapshot with version numbers and full text before analysis
     readonly snapshot?: FileSnapshot;
 
+    // Explit version tracking
+    readonly version?: number;
+    
     // For testing
     text?: string;
 
