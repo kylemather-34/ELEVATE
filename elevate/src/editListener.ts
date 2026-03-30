@@ -7,7 +7,7 @@ export interface EditListenerOptions {
   debounceMs: number;
   maxWaitMs?: number;
   fsWatcherEnabled: boolean;
-  fsWatcherGlob: string;
+  fsWatcherGlob?: string;
   onEdit?: (doc: vscode.TextDocument) => void;
 }
 
@@ -29,7 +29,7 @@ export class EditListener implements vscode.Disposable {
       vscode.workspace.onDidSaveTextDocument((doc) => this.onTextDocumentSaved(doc))
     );
 
-    if (this.opts.fsWatcherEnabled) {
+    if (this.opts.fsWatcherEnabled && this.opts.fsWatcherGlob) {
       const watcher = vscode.workspace.createFileSystemWatcher(
         this.opts.fsWatcherGlob,
         true,  // ignoreCreateEvents
@@ -55,6 +55,7 @@ export class EditListener implements vscode.Disposable {
   private onTextDocumentChanged(e: vscode.TextDocumentChangeEvent): void {
     // Filter non-content changes (dirty state flips etc.)
     if (e.contentChanges.length === 0) return;
+    if (e.document.uri.scheme !== 'file') return;
 
     const key = e.document.uri.toString();
     const gen = (this.generation.get(key) ?? 0) + 1;
@@ -64,10 +65,13 @@ export class EditListener implements vscode.Disposable {
   }
 
   private onTextDocumentSaved(doc: vscode.TextDocument): void {
+    if (doc.uri.scheme !== 'file') return;
     const key = doc.uri.toString();
 
-    // Ensure pending work runs on save so output aligns with disk state
-    this.debouncer.flush(key);
+    // Cancel any pending debounced edit — the save fires onEdit directly below
+    this.debouncer.cancel(key);
+
+    this.opts.onEdit?.(doc);
 
     this.logger.info(`[save] ${doc.uri.toString()} (version=${doc.version})`);
   }

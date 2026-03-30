@@ -4,7 +4,8 @@
   "description": "Capstone work in progress",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.109.0"
+    "vscode": "^1.109.0",
+    "node": ">=18"
   },
   "categories": [
     "Other"
@@ -113,9 +114,10 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vscode-test",
+    "test": "node scripts/test.mjs",
     "postinstall": "node scripts/ollama-ensure-model.mjs",
-    "setup:ollama": "node scripts/ollama-ensure-model.mjs"
+    "setup:ollama": "node scripts/ollama-ensure-model.mjs",
+    "prepare": "git config core.hooksPath .husky"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -125,6 +127,7 @@
     "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.27.2",
     "eslint": "^9.39.2",
+    "husky": "^9.1.7",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0"

@@ -14,7 +14,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const output = vscode.window.createOutputChannel("ELEVATE");
   context.subscriptions.push(output);
 
-  const logger = new Logger();
+  const logger = new Logger(output);
   output.appendLine("[ELEVATE] Activating...");
 
   backend = new ElevateCore(context, output);
@@ -34,8 +34,19 @@ export async function activate(context: vscode.ExtensionContext) {
     );
   }
 
-  const controller = new ExtensionController(backend);
+  const controller = new ExtensionController(backend, logger);
   controller.activateOpenFileListener(context);
+  context.subscriptions.push(controller);
+
+  // Next sprint: response panel — receives the model's analysis text and displays it in a UI panel.
+  controller.onAnalysisComplete((_result) => {
+    // TODO next sprint: responsePanel.update(_result.modelResponse);
+  });
+
+  // Next sprint: diagnostics — parses the model response and pushes inline squiggles to the editor.
+  controller.onAnalysisComplete((_result) => {
+    // TODO next sprint: diagnosticsProvider.set(_result.uri, _result.modelResponse);
+  });
 
   const cfg = vscode.workspace.getConfiguration("elevate");
 
@@ -65,6 +76,7 @@ export async function activate(context: vscode.ExtensionContext) {
     fsWatcherGlob,
     onEdit: (doc) => {
       if (!backend) { return; }
+      if (doc.uri.scheme !== 'file') { return; }
       const ctx = new ElevateContext(doc);
       backend.runPipeline(ctx).catch((err) =>
         output.appendLine(`[ELEVATE] Pipeline error: ${err?.message ?? String(err)}`)

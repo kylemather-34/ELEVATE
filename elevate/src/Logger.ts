@@ -9,8 +9,10 @@ export class Logger implements vscode.Disposable {
     private debugEnabled: boolean;
     private logFilePath?: string;
 
-    constructor(name: string = "ELEVATE", debug: boolean = true, logFilePath?: string) {
-        this.channel = vscode.window.createOutputChannel(name);
+    constructor(nameOrChannel: string | vscode.OutputChannel = "ELEVATE", debug: boolean = true, logFilePath?: string) {
+        this.channel = typeof nameOrChannel === 'string'
+            ? vscode.window.createOutputChannel(nameOrChannel)
+            : nameOrChannel;
         this.debugEnabled = debug;
         this.logFilePath = logFilePath;
         this.channel.show(true);
@@ -43,6 +45,43 @@ export class Logger implements vscode.Disposable {
 
     error(message: string) {
         this.channel.appendLine(this.format('ERROR', message));
+    }
+
+    // Debug support
+    debug(message:string) {
+        if(this.debugEnabled) {
+            this.write('DEBUG', message);
+        }
+    }
+
+    // Safe truncation for large backend payloads
+    private truncate(text: string, maxLength: number = 1000): string {
+        if (!text) return '';
+
+        if (text.length < maxLength) {
+            return text;
+        }
+        
+        return text.substring(0, maxLength) + 
+            "\n...[truncated " + (text.length - maxLength) + " chars]";
+    }
+
+    // Log outgoing prompt to LLM
+    logPrompt(prompt:string) {
+        const trimmed = this.truncate(prompt);
+        this.debug("Prompt to Ollama: \n" + trimmed);
+    }
+
+    // Log streaming / response in chunks
+    logResponseChunck(chunk: string) {
+        const trimmed = this.truncate(chunk);
+        this.debug("Part of response from Ollama:\n" + trimmed);
+    }
+
+    // Log the entire repsonse from LLM
+    logResponseFinal(response: string) {
+        const trimmed = this.truncate(response);
+        this.info("Final response from Ollama:\n" + trimmed);
     }
 
     show() {
