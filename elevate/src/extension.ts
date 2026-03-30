@@ -33,6 +33,7 @@ export async function activate(context: vscode.ExtensionContext) {
   }
 
   const controller = new ExtensionController(backend, logger);
+  controller.activateStatusBar(context);
   controller.activateOpenFileListener(context);
   context.subscriptions.push(controller);
 
