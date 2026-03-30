@@ -5,6 +5,7 @@ import { CursorTracker } from "./cursorTracker";
 import { Logger } from "./Logger";
 import { ExtensionController } from "./extension/ExtensionController";
 import { loadSettings } from "./backend/StorageLayer";
+import { CoreStateManager } from "./backend/CoreStateManager";
 
 let backend: ElevateCore | undefined;
 
@@ -32,9 +33,20 @@ export async function activate(context: vscode.ExtensionContext) {
     );
   }
 
+  const stateManager = new CoreStateManager();
+  stateManager.initialize();
+
   const controller = new ExtensionController(backend, logger);
   controller.activateOpenFileListener(context);
   context.subscriptions.push(controller);
+
+  // Wire SessionContext — track active file and accumulate feedback from each analysis run.
+  controller.onAnalysisComplete((result) => {
+    if (result.snapshot) {
+      stateManager.getSession().setActiveFile(result.snapshot);
+    }
+    stateManager.getSession().addFeedback(result.modelResponse);
+  });
 
   // Next sprint: response panel — receives the model's analysis text and displays it in a UI panel.
   controller.onAnalysisComplete((_result) => {
