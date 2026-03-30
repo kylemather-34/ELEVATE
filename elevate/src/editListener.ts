@@ -55,6 +55,7 @@ export class EditListener implements vscode.Disposable {
   private onTextDocumentChanged(e: vscode.TextDocumentChangeEvent): void {
     // Filter non-content changes (dirty state flips etc.)
     if (e.contentChanges.length === 0) return;
+    if (e.document.uri.scheme !== 'file') return;
 
     const key = e.document.uri.toString();
     const gen = (this.generation.get(key) ?? 0) + 1;
@@ -64,6 +65,7 @@ export class EditListener implements vscode.Disposable {
   }
 
   private onTextDocumentSaved(doc: vscode.TextDocument): void {
+    if (doc.uri.scheme !== 'file') return;
     const key = doc.uri.toString();
 
     // Cancel any pending debounced edit — the save fires onEdit directly below
