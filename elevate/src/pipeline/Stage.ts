@@ -62,6 +62,25 @@ export class ParseStage implements Stage {
     }
 }
 
+function filterToActiveBlock(events: BlockEvent[], cursorLine?: number): BlockEvent[] {
+    if (cursorLine === undefined) return events;
+
+    let blockStart = -1;
+    let blockEnd = events.length;
+
+    for (let i = 0; i < events.length; i++) {
+        if (events[i].event === "start" && events[i].line <= cursorLine) {
+            blockStart = i;
+        }
+        if (events[i].event === "end" && events[i].line >= cursorLine && blockStart !== -1) {
+            blockEnd = i + 1;
+            break;
+        }
+    }
+
+    return blockStart === -1 ? events : events.slice(blockStart, blockEnd);
+}
+
 export class PromptBuilderStage implements Stage {
     name = "Prompt Builder Stage";
 
@@ -72,12 +91,13 @@ export class PromptBuilderStage implements Stage {
             throw new Error("PromptBuilderStage: ctx.parsed is not set — ParseStage must run first");
         }
 
-        logger.debug(`PromptBuilderStage: building prompt from ${ctx.parsed.length} block event(s)`);
+        const events = filterToActiveBlock(ctx.parsed, ctx.cursorLine);
+        logger.debug(`PromptBuilderStage: building prompt from ${events.length}/${ctx.parsed.length} block event(s) (cursorLine=${ctx.cursorLine})`);
 
         const inputPath = path.join(os.tmpdir(), `elevate_prompt_in_${Date.now()}.json`);
         const outputPath = path.join(os.tmpdir(), `elevate_prompt_out_${Date.now()}.txt`);
 
-        await writeFile(inputPath, JSON.stringify(ctx.parsed), "utf-8");
+        await writeFile(inputPath, JSON.stringify(events), "utf-8");
 
         await new Promise<void>((resolve, reject) => {
             const proc = spawn(this.binPath, [inputPath, outputPath]);
