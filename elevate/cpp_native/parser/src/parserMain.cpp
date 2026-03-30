@@ -31,7 +31,18 @@ int main(int argc, char *argv[])
     {
         json obj;
 
-        obj["event"] = event.isStart ? "start" : "end";
+        switch(event.kind)
+        {
+            case EventKind::START:
+                obj["event"] = "start";
+                break;
+            case EventKind::END:
+                obj["event"] = "END";
+                break;
+            case EventKind::LINE:
+                obj["event"] = "LINE";
+                break;
+        }
         obj["type"] = blockTypeToString(event.type);
         obj["line"] = event.lineNumber;
         obj["indent"] = event.indentLevel;
