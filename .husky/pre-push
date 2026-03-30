@@ -1,0 +1,1 @@
+. "$HOME/.nvm/nvm.sh" && nvm use 20 --silent && cd elevate && npm test
