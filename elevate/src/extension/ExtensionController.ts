@@ -43,6 +43,7 @@ export class ExtensionController implements vscode.Disposable {
     public activateOpenFileListener(context: vscode.ExtensionContext): void {
         const openFileListener = vscode.workspace.onDidOpenTextDocument(
             async (document: vscode.TextDocument) => {
+                this.logger.info(`[open-file] fired: scheme=${document.uri.scheme} uri=${document.uri.toString()}`);
                 if (document.uri.scheme !== 'file') return;
 
                 this.logger.info(`[analysis] started for: ${document.uri.toString()}`);

@@ -36,10 +36,11 @@ export class ElevateCore {
     this.queue = new JobQueue(this.store, this.hub, this.ollama, { concurrency });
 
     const parserBin = path.join(context.extensionUri.fsPath, "cpp_native", "build", "bin", "parser");
+    const promptBuilderBin = path.join(context.extensionUri.fsPath, "cpp_native", "build", "bin", "prompt_builder");
 
     this.logger = new Logger(output);
     this.pipeline = new Pipeline(
-      [new SanitizationStage(), new ParseStage(parserBin), new PromptBuilderStage(), new OllamaStage(this.ollama)],
+      [new SanitizationStage(), new ParseStage(parserBin), new PromptBuilderStage(promptBuilderBin), new OllamaStage(this.ollama)],
       this.logger
     );
   }

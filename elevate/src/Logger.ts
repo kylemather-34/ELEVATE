@@ -81,7 +81,7 @@ export class Logger implements vscode.Disposable {
     // Log the entire repsonse from LLM
     logResponseFinal(response: string) {
         const trimmed = this.truncate(response);
-        this.info("Final response from Ollama:\n" + trimmed)
+        this.info("Final response from Ollama:\n" + trimmed);
     }
 
     show() {
