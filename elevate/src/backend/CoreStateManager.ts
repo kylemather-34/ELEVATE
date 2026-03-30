@@ -1,15 +1,21 @@
 import { FileSnapshot } from './FileSnapshot';
 import { ElevateContext } from './ElevateContext';
+import { SessionContext } from './SessionContext';
 
 export class CoreStateManager {
     private currentSnapshot?: FileSnapshot;
     private currentContext?: ElevateContext;
     private initialized: boolean = false;
+    private session: SessionContext = new SessionContext();
 
     public initialize(): void {
         this.currentSnapshot = undefined;
         this.currentContext = undefined;
         this.initialized = true;
+    }
+
+    public getSession(): SessionContext {
+        return this.session;
     }
 
     public saveState(context: ElevateContext): void {

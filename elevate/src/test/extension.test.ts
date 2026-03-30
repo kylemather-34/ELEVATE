@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import { access } from 'fs/promises';
 import { ElevateContext } from '../backend/ElevateContext';
 import { CoreStateManager } from '../backend/CoreStateManager';
+import { SessionContext } from '../backend/SessionContext';
 import { Pipeline } from '../pipeline/Pipeline';
 import { Stage, SanitizationStage, PromptBuilderStage, OllamaStage, ParseStage } from '../pipeline/Stage';
 import { Logger } from '../Logger';
@@ -62,6 +63,63 @@ suite('CoreStateManager', () => {
         const manager = new CoreStateManager();
         manager.initialize();
         assert.strictEqual(manager.getSnapshot(), undefined);
+    });
+
+    test('getSession returns a SessionContext instance', () => {
+        const manager = new CoreStateManager();
+        assert.ok(manager.getSession() instanceof SessionContext);
+    });
+});
+
+suite('SessionContext', () => {
+    test('getActiveFile returns undefined by default', () => {
+        const session = new SessionContext();
+        assert.strictEqual(session.getActiveFile(), undefined);
+    });
+
+    test('setActiveFile and getActiveFile round-trip', () => {
+        const session = new SessionContext();
+        const snapshot = { uri: 'file:///test.py', language: 'python', version: 1, text: 'print()' };
+        session.setActiveFile(snapshot);
+        assert.strictEqual(session.getActiveFile(), snapshot);
+    });
+
+    test('getRecentFeedback returns empty array by default', () => {
+        const session = new SessionContext();
+        assert.deepStrictEqual(session.getRecentFeedback(), []);
+    });
+
+    test('addFeedback stores response with timestamp and filePath', () => {
+        const session = new SessionContext();
+        const snapshot = { uri: 'file:///test.py', language: 'python', version: 1, text: 'print()' };
+        session.setActiveFile(snapshot);
+        session.addFeedback('response text');
+        const feedback = session.getRecentFeedback();
+        assert.strictEqual(feedback.length, 1);
+        assert.strictEqual(feedback[0].response, 'response text');
+        assert.strictEqual(feedback[0].filePath, 'file:///test.py');
+        assert.ok(feedback[0].timestamp);
+    });
+
+    test('addFeedback uses unknown filePath when no active file set', () => {
+        const session = new SessionContext();
+        session.addFeedback('some response');
+        assert.strictEqual(session.getRecentFeedback()[0].filePath, 'unknown');
+    });
+
+    test('clearFeedback empties the feedback list', () => {
+        const session = new SessionContext();
+        session.addFeedback('response 1');
+        session.addFeedback('response 2');
+        session.clearFeedback();
+        assert.deepStrictEqual(session.getRecentFeedback(), []);
+    });
+
+    test('accumulates multiple feedback entries', () => {
+        const session = new SessionContext();
+        session.addFeedback('first');
+        session.addFeedback('second');
+        assert.strictEqual(session.getRecentFeedback().length, 2);
     });
 });
 
