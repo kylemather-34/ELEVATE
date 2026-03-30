@@ -2,9 +2,7 @@ import * as vscode from "vscode";
 import { ElevateCore } from "./backend/ElevateCore";
 import { JobEvent, JobRecord, JobStatus } from "./backend/types";
 import { CursorTracker } from "./cursorTracker";
-import { EditListener } from "./editListener";
 import { Logger } from "./Logger";
-import { ElevateContext } from "./backend/ElevateContext";
 import { ExtensionController } from "./extension/ExtensionController";
 import { loadSettings } from "./backend/StorageLayer";
 
@@ -69,30 +67,14 @@ export async function activate(context: vscode.ExtensionContext) {
   }
   context.subscriptions.push(cursorTracker);
 
-  const editListener = new EditListener(logger, {
-    debounceMs,
-    maxWaitMs,
-    fsWatcherEnabled,
-    fsWatcherGlob,
-    onEdit: (doc) => {
-      if (!backend) { return; }
-      if (doc.uri.scheme !== 'file') { return; }
-      const ctx = new ElevateContext(doc);
-      backend.runPipeline(ctx).catch((err) =>
-        output.appendLine(`[ELEVATE] Pipeline error: ${err?.message ?? String(err)}`)
-      );
-    },
-  });
-
   if (editEnabled) {
-    editListener.start();
+    controller.activateSaveListener(context, { debounceMs, maxWaitMs, fsWatcherEnabled, fsWatcherGlob });
     output.appendLine(
       `[ELEVATE] Edit listener enabled (debounce=${debounceMs}ms, maxWait=${maxWaitMs}ms).`
     );
   } else {
     output.appendLine("[ELEVATE] Edit listener disabled by config.");
   }
-  context.subscriptions.push(editListener);
 
   // Command: Show cursor position
   context.subscriptions.push(
