@@ -76,8 +76,8 @@ suite('JobQueue', () => {
         const hub = new SseHub();
         const ollama = {
             chatStream: async function* () {
+                yield* ([] as any[]);
                 throw new Error('ollama exploded');
-                yield; // make TypeScript happy that this is a generator
             },
         } as any as OllamaClient;
         const queue = new JobQueue(store, hub, ollama, { concurrency: 1 });
@@ -91,14 +91,14 @@ suite('JobQueue', () => {
         assert.ok(finished.error?.includes('ollama exploded'));
     });
 
-    test('getJob returns undefined for unknown job id', async () => {
+    test('getJob returns null for unknown job id', async () => {
         const store = new MemStore() as any;
         const hub = new SseHub();
         const ollama = { chatStream: async function* () {} } as any as OllamaClient;
         const queue = new JobQueue(store, hub, ollama, { concurrency: 1 });
 
         const result = await queue.getJob('nonexistent-id');
-        assert.strictEqual(result, undefined);
+        assert.strictEqual(result, null);
     });
 
     test('listJobs returns all enqueued jobs', async () => {

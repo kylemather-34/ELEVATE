@@ -85,7 +85,7 @@ suite('OllamaClient', () => {
     });
 
     test('chatStream() throws when fetch returns non-ok', async () => {
-        (globalThis as any).fetch = async () => ({ ok: false, status: 500 });
+        (globalThis as any).fetch = async () => ({ ok: false, status: 500, text: async () => 'Internal Server Error' });
         const client = new OllamaClient('http://localhost:11434');
         const abort = new AbortController();
         await assert.rejects(async () => {
