@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 import { ElevateContext } from '../backend/ElevateContext';
 import { ElevateCore } from '../backend/ElevateCore';
 import { FileSnapshot } from '../backend/FileSnapshot';
-import { Logger } from '../Logger';
-import { EditListener } from '../editListener';
+import { Logger } from '../util/Logger';
+import { EditListener } from './editListener';
 
 // The result produced after a full pipeline run — passed to VSCode via the event below.
 export interface AnalysisResult {

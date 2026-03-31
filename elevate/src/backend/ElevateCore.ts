@@ -9,7 +9,7 @@ import { CreateChatJobRequest, HealthResponse, JobEvent, JobRecord, JobStatus, M
 import { isoNow } from "../util/time";
 import { Pipeline } from "../pipeline/Pipeline";
 import { SanitizationStage, ParseStage, PromptBuilderStage, OllamaStage } from "../pipeline/Stage";
-import { Logger } from "../Logger";
+import { Logger } from "../util/Logger";
 import { ElevateContext } from "./ElevateContext";
 import * as path from "path";
 
