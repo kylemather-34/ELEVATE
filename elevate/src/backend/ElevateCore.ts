@@ -11,6 +11,7 @@ import { Pipeline } from "../pipeline/Pipeline";
 import { SanitizationStage, ParseStage, PromptBuilderStage, OllamaStage } from "../pipeline/Stage";
 import { Logger } from "../util/Logger";
 import { ElevateContext } from "./ElevateContext";
+import { OllamaProcess } from "./OllamaProcess";
 import * as path from "path";
 
 export class ElevateCore {
@@ -19,6 +20,7 @@ export class ElevateCore {
   private store: JobStore;
   private queue: JobQueue;
   private ollama: OllamaClient;
+  private ollamaProcess: OllamaProcess;
   private logger: Logger;
   private pipeline: Pipeline;
 
@@ -33,6 +35,7 @@ export class ElevateCore {
     const concurrency = cfg.get<number>("concurrency") ?? 1;
 
     this.ollama = new OllamaClient(ollamaUrl);
+    this.ollamaProcess = new OllamaProcess(ollamaUrl, output);
     this.queue = new JobQueue(this.store, this.hub, this.ollama, { concurrency });
 
     const parserBin = path.join(context.extensionUri.fsPath, "cpp_native", "build", "bin", "parser");
@@ -63,7 +66,8 @@ export class ElevateCore {
   }
 
   async start(): Promise<void> {
-    // start queue
+    // start ollama, then queue
+    await this.ollamaProcess.start();
     await this.queue.start();
 
     // start HTTP server
@@ -212,6 +216,7 @@ export class ElevateCore {
     this.queue.stop();
     void this.server?.close();
     this.server = null;
+    this.ollamaProcess.stop();
   }
 
   async health(): Promise<HealthResponse> {
