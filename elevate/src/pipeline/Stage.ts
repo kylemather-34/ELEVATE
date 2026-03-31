@@ -160,8 +160,6 @@ export class OllamaStage implements Stage {
             }
         }
 
-        logger.logResponseFinal(response);
-
         ctx.modelResponse = response;
     }
 }
