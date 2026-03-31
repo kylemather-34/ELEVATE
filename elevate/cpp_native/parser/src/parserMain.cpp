@@ -25,13 +25,54 @@ int main(int argc, char *argv[])
 
     vector<BlockEvent> events = Parser::parseFile(file);
 
+    // Base case: if no block events were produced, re-read the file and emit
+    // each line as a LINE event so downstream stages always have content to work with.
+    bool hasBlocks = false;
+    for (const auto &e : events)
+        if (e.kind == EventKind::START) { hasBlocks = true; break; }
+
+    if (!hasBlocks)
+    {
+        events.clear();
+        file.clear();
+        file.seekg(0);
+
+        string line;
+        int lineNumber = 0;
+        while (getline(file, line))
+        {
+            lineNumber++;
+            string trimmed = Parser::trim(line);
+            if (trimmed.empty()) continue;
+
+            BlockEvent lineEvent;
+            lineEvent.kind = EventKind::LINE;
+            lineEvent.type = BlockType::UNKNOWN;
+            lineEvent.lineNumber = lineNumber;
+            lineEvent.indentLevel = Parser::countIndent(line);
+            lineEvent.lineText = trimmed;
+            events.push_back(lineEvent);
+        }
+    }
+
     json output = json::array();
 
     for (const auto &event : events)
     {
         json obj;
 
-        obj["event"] = event.isStart ? "start" : "end";
+        switch(event.kind)
+        {
+            case EventKind::START:
+                obj["event"] = "start";
+                break;
+            case EventKind::END:
+                obj["event"] = "END";
+                break;
+            case EventKind::LINE:
+                obj["event"] = "LINE";
+                break;
+        }
         obj["type"] = blockTypeToString(event.type);
         obj["line"] = event.lineNumber;
         obj["indent"] = event.indentLevel;

@@ -1,11 +1,11 @@
 import * as vscode from "vscode";
 import { ElevateCore } from "./backend/ElevateCore";
 import { JobEvent, JobRecord, JobStatus } from "./backend/types";
-import { CursorTracker } from "./cursorTracker";
-import { EditListener } from "./editListener";
-import { Logger } from "./Logger";
-import { ElevateContext } from "./backend/ElevateContext";
+import { CursorTracker } from "./extension/cursorTracker";
+import { Logger } from "./util/Logger";
 import { ExtensionController } from "./extension/ExtensionController";
+import { loadSettings } from "./backend/StorageLayer";
+import { CoreStateManager } from "./backend/CoreStateManager";
 
 let backend: ElevateCore | undefined;
 
@@ -18,6 +18,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
   backend = new ElevateCore(context, output);
 
+  // Load persisted settings on activation
+  const settings = loadSettings(context);
+  output.appendLine("[ELEVATE Loaded Settings: " + JSON.stringify(settings));
+
   // Start backend on activation, but don't crash activation if it fails.
   try {
     await backend.start();
@@ -29,8 +33,31 @@ export async function activate(context: vscode.ExtensionContext) {
     );
   }
 
-  const controller = new ExtensionController(backend);
+  const stateManager = new CoreStateManager();
+  stateManager.initialize();
+
+  const controller = new ExtensionController(backend, logger);
+  controller.activateStatusBar(context);
   controller.activateOpenFileListener(context);
+  context.subscriptions.push(controller);
+
+  // Wire SessionContext — track active file and accumulate feedback from each analysis run.
+  controller.onAnalysisComplete((result) => {
+    if (result.snapshot) {
+      stateManager.getSession().setActiveFile(result.snapshot);
+    }
+    stateManager.getSession().addFeedback(result.modelResponse);
+  });
+
+  // Next sprint: response panel — receives the model's analysis text and displays it in a UI panel.
+  controller.onAnalysisComplete((_result) => {
+    // TODO next sprint: responsePanel.update(_result.modelResponse);
+  });
+
+  // Next sprint: diagnostics — parses the model response and pushes inline squiggles to the editor.
+  controller.onAnalysisComplete((_result) => {
+    // TODO next sprint: diagnosticsProvider.set(_result.uri, _result.modelResponse);
+  });
 
   const cfg = vscode.workspace.getConfiguration("elevate");
 
@@ -53,30 +80,14 @@ export async function activate(context: vscode.ExtensionContext) {
   }
   context.subscriptions.push(cursorTracker);
 
-  const editListener = new EditListener(logger, {
-    debounceMs,
-    maxWaitMs,
-    fsWatcherEnabled,
-    fsWatcherGlob,
-    onEdit: (doc) => {
-      if (!backend) { return; }
-      if (doc.uri.scheme !== 'file') { return; }
-      const ctx = new ElevateContext(doc);
-      backend.runPipeline(ctx).catch((err) =>
-        output.appendLine(`[ELEVATE] Pipeline error: ${err?.message ?? String(err)}`)
-      );
-    },
-  });
-
   if (editEnabled) {
-    editListener.start();
+    controller.activateSaveListener(context, { debounceMs, maxWaitMs, fsWatcherEnabled, fsWatcherGlob });
     output.appendLine(
       `[ELEVATE] Edit listener enabled (debounce=${debounceMs}ms, maxWait=${maxWaitMs}ms).`
     );
   } else {
     output.appendLine("[ELEVATE] Edit listener disabled by config.");
   }
-  context.subscriptions.push(editListener);
 
   // Command: Show cursor position
   context.subscriptions.push(

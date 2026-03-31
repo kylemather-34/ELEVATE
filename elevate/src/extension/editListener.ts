@@ -1,7 +1,7 @@
 // elevate/src/editListener.ts
 import * as vscode from 'vscode';
-import { Logger } from './Logger';
-import { KeyedDebouncer } from './debounce';
+import { Logger } from '../util/Logger';
+import { KeyedDebouncer } from '../util/debounce';
 
 export interface EditListenerOptions {
   debounceMs: number;

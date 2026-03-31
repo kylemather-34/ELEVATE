@@ -1,6 +1,6 @@
 import { ElevateContext } from "../backend/ElevateContext";
 import * as stage from "./Stage";
-import { Logger } from "../Logger";
+import { Logger } from "../util/Logger";
 
 
 export class Pipeline {

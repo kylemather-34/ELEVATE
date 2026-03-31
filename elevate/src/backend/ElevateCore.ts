@@ -9,8 +9,9 @@ import { CreateChatJobRequest, HealthResponse, JobEvent, JobRecord, JobStatus, M
 import { isoNow } from "../util/time";
 import { Pipeline } from "../pipeline/Pipeline";
 import { SanitizationStage, ParseStage, PromptBuilderStage, OllamaStage } from "../pipeline/Stage";
-import { Logger } from "../Logger";
+import { Logger } from "../util/Logger";
 import { ElevateContext } from "./ElevateContext";
+import { OllamaProcess } from "./OllamaProcess";
 import * as path from "path";
 
 export class ElevateCore {
@@ -19,6 +20,7 @@ export class ElevateCore {
   private store: JobStore;
   private queue: JobQueue;
   private ollama: OllamaClient;
+  private ollamaProcess: OllamaProcess;
   private logger: Logger;
   private pipeline: Pipeline;
 
@@ -33,6 +35,7 @@ export class ElevateCore {
     const concurrency = cfg.get<number>("concurrency") ?? 1;
 
     this.ollama = new OllamaClient(ollamaUrl);
+    this.ollamaProcess = new OllamaProcess(ollamaUrl, output);
     this.queue = new JobQueue(this.store, this.hub, this.ollama, { concurrency });
 
     const parserBin = path.join(context.extensionUri.fsPath, "cpp_native", "build", "bin", "parser");
@@ -43,10 +46,28 @@ export class ElevateCore {
       [new SanitizationStage(), new ParseStage(parserBin), new PromptBuilderStage(promptBuilderBin), new OllamaStage(this.ollama)],
       this.logger
     );
+
+    // keep file versions on updated save
+    vscode.workspace.onDidSaveTextDocument((doc) => {
+      const key = this.getFileKey(doc);
+      this.queue.setFileVersion(key, doc.version);
+    });
+
+    // optional, tracks live edits
+    vscode.workspace.onDidChangeTextDocument((e) => {
+      const key = this.getFileKey(e.document);
+      this.queue.setFileVersion(key, e.document.version);
+    });
+  }
+
+  // unique key per file
+  private getFileKey(doc: vscode.TextDocument): string {
+    return doc.uri.toString();
   }
 
   async start(): Promise<void> {
-    // start queue
+    // start ollama, then queue
+    await this.ollamaProcess.start();
     await this.queue.start();
 
     // start HTTP server
@@ -87,12 +108,26 @@ export class ElevateCore {
         return HttpServer.json(res, 400, { error: "bad_request", message: "Only OLLAMA_CHAT supported in MVP" });
       }
 
+      // get active document
+      const activeEditor = vscode.window.activeTextEditor;
+      const doc = activeEditor?.document;
+
+      const fileKey = doc ? this.getFileKey(doc) : body.payload?.analysis_key;
+      const version = doc?.version ?? body.version ?? 0;
+
+      // update latest version in queue
+      if (fileKey) {
+        this.queue.setFileVersion(fileKey, version);
+      }
+
       const job = await this.queue.enqueueChatJob({
         priority: body.priority ?? 5,
         model: body.model,
         messages: body.payload?.messages ?? [],
         keep_alive: body.keep_alive ?? "5m",
         options: body.options ?? {},
+        analysis_key: fileKey,
+        version: version
       });
 
       HttpServer.json(res, 202, { job_id: job.job_id, status: job.status, created_at: job.created_at });
@@ -101,6 +136,37 @@ export class ElevateCore {
     router.add("POST", "/v1/jobs/:id/cancel", async (_req, res, ctx) => {
       const result = await this.queue.cancelJob(ctx.params.id);
       HttpServer.json(res, 200, result);
+    });
+
+    router.add("POST", "/v1/prompt", async (_req, res, ctx) => {
+      const body = await ctx.bodyJson<{ parsed: any; text?: string }>();
+
+      if (!body?.parsed) {
+        return HttpServer.json(res, 400, {
+          error: "bad_request",
+          message: "Request body must include a 'parsed' field",
+        });
+      }
+
+      const elevateCtx = new ElevateContext(body.text ?? "");
+      elevateCtx.parsed = body.parsed;
+      elevateCtx.analysisTarget = body.text ?? "";
+
+      const promptBuilderBin = path.join(this.context.extensionUri.fsPath, "cpp_native", "build", "bin", "prompt_builder");
+
+      try {
+        await new PromptBuilderStage(promptBuilderBin).run(elevateCtx, this.logger);
+        await new OllamaStage(this.ollama).run(elevateCtx, this.logger);
+      } catch (e: any) {
+        return HttpServer.json(res, 500, {
+          error: "pipeline_error",
+          message: String(e?.message ?? e),
+        });
+      }
+
+      HttpServer.json(res, 200, {
+        response: elevateCtx.modelResponse,
+      });
     });
 
     // SSE events: /v1/jobs/:id/events?after=0
@@ -150,6 +216,7 @@ export class ElevateCore {
     this.queue.stop();
     void this.server?.close();
     this.server = null;
+    this.ollamaProcess.stop();
   }
 
   async health(): Promise<HealthResponse> {
