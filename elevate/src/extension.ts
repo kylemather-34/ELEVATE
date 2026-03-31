@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import { ElevateCore } from "./backend/ElevateCore";
 import { JobEvent, JobRecord, JobStatus } from "./backend/types";
-import { CursorTracker } from "./cursorTracker";
-import { Logger } from "./Logger";
+import { CursorTracker } from "./extension/cursorTracker";
+import { Logger } from "./util/Logger";
 import { ExtensionController } from "./extension/ExtensionController";
 import { loadSettings } from "./backend/StorageLayer";
 import { CoreStateManager } from "./backend/CoreStateManager";

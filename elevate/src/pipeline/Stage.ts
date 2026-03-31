@@ -6,7 +6,7 @@ import { writeFile, readFile, unlink } from "fs/promises";
 import * as os from "os";
 import * as path from "path";
 import { OllamaClient } from "../backend/OllamaClient";
-import { Logger } from "../Logger";
+import { Logger } from "../util/Logger";
 
 export interface Stage {
     name: string;
