@@ -6,6 +6,8 @@ import { Logger } from "./util/Logger";
 import { ExtensionController } from "./extension/ExtensionController";
 import { loadSettings } from "./backend/StorageLayer";
 import { CoreStateManager } from "./backend/CoreStateManager";
+import { JobStore } from "./backend/JobStore";
+import { PrivacyManager } from "./backend/PrivacyManager";
 
 let backend: ElevateCore | undefined;
 
@@ -18,9 +20,21 @@ export async function activate(context: vscode.ExtensionContext) {
 
   backend = new ElevateCore(context, output);
 
+  const store = new JobStore(context);
+  const privacy = new PrivacyManager(context, store);
+
   // Load persisted settings on activation
   const settings = loadSettings(context);
-  output.appendLine("[ELEVATE Loaded Settings: " + JSON.stringify(settings));
+  output.appendLine("[ELEVATE] Loaded Settings: " + JSON.stringify(settings));
+  output.appendLine("[ELEVATE] Privacy: all analysis runs locally via Ollama — no data leaves this machine.");
+
+  // Auto-prune job history on startup
+  const retentionDays = vscode.workspace.getConfiguration("elevate").get<number>("privacy.jobRetentionDays", 30);
+  store.pruneByRetention(retentionDays).then((pruned) => {
+    if (pruned > 0) {
+      output.appendLine(`[ELEVATE] Auto-pruned ${pruned} job(s) older than ${retentionDays} day(s).`);
+    }
+  }).catch(() => {});
 
   // Start backend on activation, but don't crash activation if it fails.
   try {
@@ -233,6 +247,58 @@ export async function activate(context: vscode.ExtensionContext) {
         output.appendLine(`[ELEVATE] Cancel failed: ${err?.message ?? String(err)}`);
         vscode.window.showErrorMessage("Failed to cancel job (see Output: ELEVATE).");
       }
+    })
+  );
+
+  // Command: Forget Me — wipe all stored data after confirmation
+  context.subscriptions.push(
+    vscode.commands.registerCommand("elevate.forgetMe", async () => {
+      const confirm = await vscode.window.showWarningMessage(
+        "ELEVATE: This will permanently delete all job history and stored settings. This cannot be undone.",
+        { modal: true },
+        "Delete All Data"
+      );
+      if (confirm !== "Delete All Data") {
+        return;
+      }
+      try {
+        await privacy.forgetAll();
+        vscode.window.showInformationMessage("ELEVATE: All stored data has been deleted.");
+        output.appendLine("[ELEVATE] Forget Me: all data wiped by user request.");
+      } catch (err: any) {
+        output.appendLine(`[ELEVATE] Forget Me failed: ${err?.message ?? String(err)}`);
+        vscode.window.showErrorMessage("ELEVATE: Failed to delete data (see Output: ELEVATE).");
+      }
+    })
+  );
+
+  // Command: Export Progress — save all job records to a JSON file
+  context.subscriptions.push(
+    vscode.commands.registerCommand("elevate.exportProgress", async () => {
+      try {
+        const result = await privacy.exportProgress();
+        if (result) {
+          vscode.window.showInformationMessage(`ELEVATE: Progress exported to ${result.filePath}`);
+          output.appendLine(`[ELEVATE] Export written to: ${result.filePath}`);
+        }
+      } catch (err: any) {
+        output.appendLine(`[ELEVATE] Export failed: ${err?.message ?? String(err)}`);
+        vscode.window.showErrorMessage("ELEVATE: Export failed (see Output: ELEVATE).");
+      }
+    })
+  );
+
+  // Command: Privacy Status — confirm local-only data posture
+  context.subscriptions.push(
+    vscode.commands.registerCommand("elevate.showPrivacyStatus", () => {
+      const ollamaUrl = vscode.workspace.getConfiguration("elevate").get<string>("ollamaUrl", "http://localhost:11434");
+      const retentionDays2 = vscode.workspace.getConfiguration("elevate").get<number>("privacy.jobRetentionDays", 30);
+      vscode.window.showInformationMessage(
+        `ELEVATE Privacy: Local-only mode active. ` +
+        `Ollama endpoint: ${ollamaUrl}. ` +
+        `Job history auto-deleted after ${retentionDays2} days. ` +
+        `No data is sent to external servers.`
+      );
     })
   );
 

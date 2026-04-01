@@ -4,6 +4,14 @@ import { safeJsonParse, safeJsonStringify } from "../util/json";
 
 const JOBS_FILE = "jobs.json";
 
+// Allowlist for job IDs: UUID format (hex + hyphens, fixed length 36) or
+// any alphanumeric/hyphen/underscore up to 128 chars. Prevents path traversal.
+export const VALID_JOB_ID_RE = /^[\w-]{1,128}$/;
+
+export function isValidJobId(jobId: string): boolean {
+  return VALID_JOB_ID_RE.test(jobId);
+}
+
 export class JobStore {
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -16,6 +24,9 @@ export class JobStore {
   }
 
   private jobTextUri(jobId: string): vscode.Uri {
+    if (!isValidJobId(jobId)) {
+      throw new Error(`Invalid job ID: "${jobId}"`);
+    }
     return vscode.Uri.joinPath(this.context.globalStorageUri, `job_${jobId}.txt`);
   }
 
@@ -58,5 +69,57 @@ export class JobStore {
     } catch {
       return null;
     }
+  }
+
+  async deleteJobText(jobId: string): Promise<void> {
+    try {
+      await vscode.workspace.fs.delete(this.jobTextUri(jobId));
+    } catch {
+      // already gone — not an error
+    }
+  }
+
+  /** Delete all job records and result text files from storage. */
+  async deleteAll(): Promise<void> {
+    await this.ensureDir();
+    try {
+      const entries = await vscode.workspace.fs.readDirectory(this.context.globalStorageUri);
+      await Promise.all(
+        entries
+          .filter(([name]) => name.startsWith("job_") && name.endsWith(".txt"))
+          .map(([name]) =>
+            vscode.workspace.fs.delete(
+              vscode.Uri.joinPath(this.context.globalStorageUri, name)
+            ).then(undefined, () => {})
+          )
+      );
+    } catch {
+      // dir unreadable — continue to overwrite jobs list
+    }
+    await this.saveAll([]);
+  }
+
+  /**
+   * Remove jobs (and their result text files) older than `daysToKeep` days.
+   * Returns the number of jobs pruned.
+   */
+  async pruneByRetention(daysToKeep: number): Promise<number> {
+    const jobs = await this.loadAll();
+    const cutoffMs = Date.now() - daysToKeep * 24 * 60 * 60 * 1000;
+    const keep: JobRecord[] = [];
+    const prune: JobRecord[] = [];
+    for (const j of jobs) {
+      const ts = new Date(j.created_at).getTime();
+      if (!Number.isNaN(ts) && ts < cutoffMs) {
+        prune.push(j);
+      } else {
+        keep.push(j);
+      }
+    }
+    if (prune.length > 0) {
+      await Promise.all(prune.map((j) => this.deleteJobText(j.job_id)));
+      await this.saveAll(keep);
+    }
+    return prune.length;
   }
 }
