@@ -12,8 +12,13 @@ string safeJSONWrap(const json &data){
 }
 
 int main(int argc, char *argv[]){
-    string inputFile = "../../parser/parserOutput.json"; // Will likely need to be updated
+    if (argc < 3) {
+        cerr << "Usage: prompt_builder <input.json> <output.txt>\n";
+        return 1;
+    }
 
+    string inputFile = argv[1];
+    string outputFile = argv[2];
     // Open the text file
     ifstream inFile(inputFile);
     if (!inFile.is_open())
@@ -51,13 +56,13 @@ int main(int argc, char *argv[]){
     string safeJson = safeJSONWrap(parsedData);
     
     string outputFormat =
-        "Output format:\n"
+        "Output response in JSON with these sections for highlighting in IDE:\n"
         "1. Structural summary (teaching style)\n"
         "2. Potential issues\n"
         "3. Complexity observations\n"
         "4. Suggested improvements with explanations\n";
 
-    ofstream outFile("ai_input.txt");
+    ofstream outFile(outputFile);
     if (!outFile.is_open()){
         cerr << "Error: could not open output file\n";
         return 1;
