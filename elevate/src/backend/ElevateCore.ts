@@ -6,14 +6,11 @@ import { JobStore } from "./JobStore";
 import { SseHub } from "./SSEHub";
 import { OllamaClient } from "./OllamaClient";
 import { CreateChatJobRequest, HealthResponse, JobEvent, JobRecord, JobStatus, ModelsResponse } from "./types";
-import { isoNow } from "../util/time";
 import { Pipeline } from "../pipeline/Pipeline";
 import { SanitizationStage, ParseStage, PromptBuilderStage, OllamaStage } from "../pipeline/Stage";
 import { Logger } from "../util/Logger";
 import { ElevateContext } from "./ElevateContext";
 import * as path from "path";
-
-// Test Change to see if I can push
 
 export class ElevateCore {
   private server: HttpServer | null = null;
@@ -23,6 +20,7 @@ export class ElevateCore {
   private ollama: OllamaClient;
   private logger: Logger;
   private pipeline: Pipeline;
+  private diagnosticCollection: vscode.DiagnosticCollection;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -42,9 +40,16 @@ export class ElevateCore {
 
     this.logger = new Logger(output);
     this.pipeline = new Pipeline(
-      [new SanitizationStage(), new ParseStage(parserBin), new PromptBuilderStage(promptBuilderBin), new OllamaStage(this.ollama)],
+      [
+        new SanitizationStage(),
+        new ParseStage(parserBin),
+        new PromptBuilderStage(promptBuilderBin),
+        new OllamaStage(this.ollama),
+      ],
       this.logger
     );
+
+    this.diagnosticCollection = vscode.languages.createDiagnosticCollection("elevate");
 
     // keep file versions on updated save
     vscode.workspace.onDidSaveTextDocument((doc) => {
@@ -214,6 +219,7 @@ export class ElevateCore {
     this.queue.stop();
     void this.server?.close();
     this.server = null;
+    this.diagnosticCollection.dispose();
   }
 
   async health(): Promise<HealthResponse> {
@@ -237,8 +243,15 @@ export class ElevateCore {
   }
 
   async runPipeline(ctx: ElevateContext): Promise<void> {
-    return this.pipeline.execute(ctx);
-  }
+    await this.pipeline.execute(ctx);
+
+    if (!ctx.modelResponse || !ctx.snapshot?.uri) return;
+
+    const uri = vscode.Uri.parse(ctx.snapshot.uri);
+    const diagnostics = parseModelResponse(ctx.modelResponse);
+    this.diagnosticCollection.set(uri, diagnostics);
+    ctx.diagnostics = diagnostics;
+}
 
   async waitForTerminalStatus(jobId: string): Promise<JobRecord> {
     while (true) {
@@ -251,4 +264,47 @@ export class ElevateCore {
       await new Promise((r) => setTimeout(r, 100));
     }
   }
+}
+
+function parseModelResponse(response: string): vscode.Diagnostic[] {
+  const results: vscode.Diagnostic[] = [];
+
+  const lineFirst = /\bline\s+(\d+)\s*[:\-]\s*([\w\s]+?)\s*[:\-]\s*(.+)/gi;
+  const severityFirst = /\b(error|warning|warn|hint|suggestion|note|info|critical|fatal)\s+(?:on|at)\s+line\s+(\d+)\s*[:\-]?\s*(.+)/gi;
+
+  for (const match of response.matchAll(lineFirst)) {
+    const line = parseInt(match[1], 10) - 1;
+    const severity = resolveSeverity(match[2].trim().toLowerCase());
+    const message = match[3].trim();
+    if (line < 0 || !message) continue;
+    results.push(new vscode.Diagnostic(
+      new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER),
+      message,
+      severity
+    ));
+  }
+
+  for (const match of response.matchAll(severityFirst)) {
+    const line = parseInt(match[2], 10) - 1;
+    const severity = resolveSeverity(match[1].trim().toLowerCase());
+    const message = match[3].trim();
+    if (line < 0 || !message) continue;
+    const dupe = results.some(d => d.range.start.line === line && d.message === message);
+    if (!dupe) {
+      results.push(new vscode.Diagnostic(
+        new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER),
+        message,
+        severity
+      ));
+    }
+  }
+
+  return results;
+}
+
+function resolveSeverity(word: string): vscode.DiagnosticSeverity {
+  if (["error", "critical", "fatal"].some(k => word.includes(k))) return vscode.DiagnosticSeverity.Error;
+  if (["warning", "warn", "caution"].some(k => word.includes(k)))  return vscode.DiagnosticSeverity.Warning;
+  if (["hint", "suggestion", "note", "info"].some(k => word.includes(k))) return vscode.DiagnosticSeverity.Hint;
+  return vscode.DiagnosticSeverity.Information;
 }
