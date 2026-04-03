@@ -3,6 +3,7 @@
   "displayName": "ELEVATE",
   "description": "Capstone work in progress",
   "version": "0.0.1",
+  "publisher": "Elevate",
   "engines": {
     "vscode": "^1.109.0",
     "node": ">=18"

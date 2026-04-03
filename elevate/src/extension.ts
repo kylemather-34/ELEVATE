@@ -14,6 +14,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(output);
 
   const logger = new Logger(output);
+  logger.setLogDir(context);
   output.appendLine("[ELEVATE] Activating...");
 
   backend = new ElevateCore(context, output);

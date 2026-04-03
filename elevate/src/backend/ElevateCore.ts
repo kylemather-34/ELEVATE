@@ -9,7 +9,7 @@ import { CreateChatJobRequest, HealthResponse, JobEvent, JobRecord, JobStatus, M
 import { isoNow } from "../util/time";
 import { Pipeline } from "../pipeline/Pipeline";
 import { SanitizationStage, ParseStage, PromptBuilderStage, OllamaStage } from "../pipeline/Stage";
-import { Logger } from "../util/Logger";
+import { Component, Logger } from "../util/Logger";
 import { ElevateContext } from "./ElevateContext";
 import * as path from "path";
 
@@ -27,22 +27,31 @@ export class ElevateCore {
     private readonly output: vscode.OutputChannel
   ) {
     this.store = new JobStore(context);
-
+    this.logger = new Logger(output);
+    this.logger.setLogDir(context); 
+    
     const cfg = vscode.workspace.getConfiguration("elevate");
     const ollamaUrl = cfg.get<string>("ollamaUrl") ?? "http://localhost:11434";
     const concurrency = cfg.get<number>("concurrency") ?? 1;
 
-    this.ollama = new OllamaClient(ollamaUrl);
+    this.ollama = new OllamaClient(ollamaUrl, this.logger);
     this.queue = new JobQueue(this.store, this.hub, this.ollama, { concurrency });
 
     const parserBin = path.join(context.extensionUri.fsPath, "cpp_native", "build", "bin", "parser");
     const promptBuilderBin = path.join(context.extensionUri.fsPath, "cpp_native", "build", "bin", "prompt_builder");
 
-    this.logger = new Logger(output);
-    this.pipeline = new Pipeline(
-      [new SanitizationStage(), new ParseStage(parserBin), new PromptBuilderStage(promptBuilderBin), new OllamaStage(this.ollama)],
-      this.logger
-    );
+    
+
+  const pipelineLogger = this.logger.forComponent(Component.Pipeline);
+  this.pipeline = new Pipeline(
+    [
+      new SanitizationStage(),
+      new ParseStage(parserBin),
+      new PromptBuilderStage(promptBuilderBin),
+      new OllamaStage(this.ollama),
+    ],
+    pipelineLogger  // pass scoped logger here
+  );
 
     // keep file versions on updated save
     vscode.workspace.onDidSaveTextDocument((doc) => {
