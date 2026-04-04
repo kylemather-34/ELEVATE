@@ -38,6 +38,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const controller = new ExtensionController(backend, logger);
   controller.activateStatusBar(context);
+  controller.activateResponsePanel(context);
   controller.activateOpenFileListener(context);
   context.subscriptions.push(controller);
 
@@ -49,10 +50,11 @@ export async function activate(context: vscode.ExtensionContext) {
     stateManager.getSession().addFeedback(result.modelResponse);
   });
 
-  // Next sprint: response panel — receives the model's analysis text and displays it in a UI panel.
-  controller.onAnalysisComplete((_result) => {
-    // TODO next sprint: responsePanel.update(_result.modelResponse);
-  });
+  context.subscriptions.push(
+    vscode.commands.registerCommand("elevate.openResponsePanel", () => {
+      controller.showResponsePanel();
+    })
+  );
 
   // Next sprint: diagnostics — parses the model response and pushes inline squiggles to the editor.
   controller.onAnalysisComplete((_result) => {
