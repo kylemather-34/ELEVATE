@@ -104,11 +104,12 @@ export class ResponsePanel implements vscode.Disposable {
         }
         h2:first-child { margin-top: 0; }
         p { margin: 0 0 8px 0; }
-        .issue {
-            display: flex;
-            align-items: baseline;
-            gap: 8px;
-            padding: 4px 0;
+        .issues-list {
+            display: grid;
+            grid-template-columns: auto auto 1fr;
+            column-gap: 8px;
+            row-gap: 5px;
+            align-items: center;
         }
         .badge {
             font-size: 0.75em;
@@ -116,12 +117,12 @@ export class ResponsePanel implements vscode.Disposable {
             padding: 1px 6px;
             border-radius: 3px;
             text-transform: uppercase;
-            flex-shrink: 0;
+            text-align: center;
         }
         .badge-error   { background: var(--vscode-inputValidation-errorBackground, #5a1d1d); color: var(--vscode-inputValidation-errorForeground, #f48771); }
         .badge-warning { background: var(--vscode-inputValidation-warningBackground, #352a05); color: var(--vscode-inputValidation-warningForeground, #cca700); }
         .badge-info    { background: var(--vscode-inputValidation-infoBackground, #063b49); color: var(--vscode-inputValidation-infoForeground, #75beff); }
-        .line-num { color: var(--vscode-descriptionForeground); font-size: 0.85em; flex-shrink: 0; }
+        .line-num { color: var(--vscode-descriptionForeground); font-size: 0.85em; white-space: nowrap; }
         .improvement { margin-bottom: 10px; }
         .improvement .reasoning { color: var(--vscode-descriptionForeground); font-size: 0.9em; margin-top: 2px; }
         .raw { white-space: pre-wrap; word-wrap: break-word; }
@@ -137,11 +138,14 @@ export class ResponsePanel implements vscode.Disposable {
     }
 
     private buildStructuredBody(data: AnalysisResponse): string {
-        const issues = data.issues.map(issue => {
-            const badge = `<span class="badge badge-${this.escape(issue.severity)}">${this.escape(issue.severity)}</span>`;
-            const line = `<span class="line-num">line ${issue.line}</span>`;
-            return `<div class="issue">${badge}${line}<span>${this.escape(issue.description)}</span></div>`;
-        }).join('') || '<p>No issues found.</p>';
+        const issueRows = data.issues.map(issue =>
+            `<span class="badge badge-${this.escape(issue.severity)}">${this.escape(issue.severity)}</span>` +
+            `<span class="line-num">line ${issue.line}</span>` +
+            `<span>${this.escape(issue.description)}</span>`
+        ).join('');
+        const issues = issueRows
+            ? `<div class="issues-list">${issueRows}</div>`
+            : '<p>No issues found.</p>';
 
         const improvements = data.improvements.map(imp => `
             <div class="improvement">
