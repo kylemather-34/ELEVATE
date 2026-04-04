@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import { buildExportPayload } from "../backend/PrivacyManager";
-import { isValidJobId } from "../backend/JobStore";
+import { isValidJobId, partitionJobsByRetention } from "../backend/JobStore";
 import { JobRecord, JobStatus } from "../backend/types";
 
 // ---------------------------------------------------------------------------
@@ -123,5 +123,60 @@ suite("buildExportPayload", () => {
     const payload = buildExportPayload([], new Map(), "2026-01-01T00:00:00.000Z");
     assert.strictEqual(payload.total_jobs, 0);
     assert.deepStrictEqual(payload.jobs, []);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// partitionJobsByRetention — pruning logic
+// ---------------------------------------------------------------------------
+
+suite("partitionJobsByRetention", () => {
+  const CUTOFF = new Date("2026-03-01T00:00:00.000Z").getTime();
+
+  test("prunes jobs older than the cutoff", () => {
+    const old = makeJob({ job_id: "old", created_at: "2026-01-01T00:00:00.000Z" });
+    const { keep, prune } = partitionJobsByRetention([old], CUTOFF);
+    assert.strictEqual(prune.length, 1);
+    assert.strictEqual(keep.length, 0);
+    assert.strictEqual(prune[0].job_id, "old");
+  });
+
+  test("keeps jobs newer than the cutoff", () => {
+    const recent = makeJob({ job_id: "recent", created_at: "2026-04-01T00:00:00.000Z" });
+    const { keep, prune } = partitionJobsByRetention([recent], CUTOFF);
+    assert.strictEqual(keep.length, 1);
+    assert.strictEqual(prune.length, 0);
+  });
+
+  test("keeps jobs exactly at the cutoff", () => {
+    const exact = makeJob({ job_id: "exact", created_at: new Date(CUTOFF).toISOString() });
+    const { keep, prune } = partitionJobsByRetention([exact], CUTOFF);
+    assert.strictEqual(keep.length, 1);
+    assert.strictEqual(prune.length, 0);
+  });
+
+  test("keeps jobs with unparseable created_at to avoid accidental loss", () => {
+    const bad = makeJob({ job_id: "bad-date", created_at: "not-a-date" });
+    const { keep, prune } = partitionJobsByRetention([bad], CUTOFF);
+    assert.strictEqual(keep.length, 1);
+    assert.strictEqual(prune.length, 0);
+  });
+
+  test("splits a mixed list correctly", () => {
+    const jobs = [
+      makeJob({ job_id: "old1", created_at: "2026-01-01T00:00:00.000Z" }),
+      makeJob({ job_id: "old2", created_at: "2026-02-01T00:00:00.000Z" }),
+      makeJob({ job_id: "new1", created_at: "2026-04-01T00:00:00.000Z" }),
+    ];
+    const { keep, prune } = partitionJobsByRetention(jobs, CUTOFF);
+    assert.strictEqual(prune.length, 2);
+    assert.strictEqual(keep.length, 1);
+    assert.strictEqual(keep[0].job_id, "new1");
+  });
+
+  test("returns empty arrays for empty input", () => {
+    const { keep, prune } = partitionJobsByRetention([], CUTOFF);
+    assert.deepStrictEqual(keep, []);
+    assert.deepStrictEqual(prune, []);
   });
 });

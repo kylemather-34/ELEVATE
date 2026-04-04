@@ -106,20 +106,33 @@ export class JobStore {
   async pruneByRetention(daysToKeep: number): Promise<number> {
     const jobs = await this.loadAll();
     const cutoffMs = Date.now() - daysToKeep * 24 * 60 * 60 * 1000;
-    const keep: JobRecord[] = [];
-    const prune: JobRecord[] = [];
-    for (const j of jobs) {
-      const ts = new Date(j.created_at).getTime();
-      if (!Number.isNaN(ts) && ts < cutoffMs) {
-        prune.push(j);
-      } else {
-        keep.push(j);
-      }
-    }
+    const { keep, prune } = partitionJobsByRetention(jobs, cutoffMs);
     if (prune.length > 0) {
       await Promise.all(prune.map((j) => this.deleteJobText(j.job_id)));
       await this.saveAll(keep);
     }
     return prune.length;
   }
+}
+
+/**
+ * Pure function — splits a job list into jobs to keep and jobs to prune.
+ * A job is pruned if its created_at timestamp is a valid date older than cutoffMs.
+ * Jobs with unparseable dates are kept to avoid accidental data loss.
+ */
+export function partitionJobsByRetention(
+  jobs: JobRecord[],
+  cutoffMs: number
+): { keep: JobRecord[]; prune: JobRecord[] } {
+  const keep: JobRecord[] = [];
+  const prune: JobRecord[] = [];
+  for (const j of jobs) {
+    const ts = new Date(j.created_at).getTime();
+    if (!Number.isNaN(ts) && ts < cutoffMs) {
+      prune.push(j);
+    } else {
+      keep.push(j);
+    }
+  }
+  return { keep, prune };
 }

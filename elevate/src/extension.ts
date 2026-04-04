@@ -6,7 +6,6 @@ import { Logger } from "./util/Logger";
 import { ExtensionController } from "./extension/ExtensionController";
 import { loadSettings } from "./backend/StorageLayer";
 import { CoreStateManager } from "./backend/CoreStateManager";
-import { JobStore } from "./backend/JobStore";
 import { PrivacyManager } from "./backend/PrivacyManager";
 
 let backend: ElevateCore | undefined;
@@ -20,8 +19,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   backend = new ElevateCore(context, output);
 
-  const store = new JobStore(context);
-  const privacy = new PrivacyManager(context, store);
+  const privacy = new PrivacyManager(context, backend.getStore());
 
   // Load persisted settings on activation
   const settings = loadSettings(context);
@@ -30,7 +28,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Auto-prune job history on startup
   const retentionDays = vscode.workspace.getConfiguration("elevate").get<number>("privacy.jobRetentionDays", 30);
-  store.pruneByRetention(retentionDays).then((pruned) => {
+  backend.getStore().pruneByRetention(retentionDays).then((pruned: number) => {
     if (pruned > 0) {
       output.appendLine(`[ELEVATE] Auto-pruned ${pruned} job(s) older than ${retentionDays} day(s).`);
     }
@@ -291,12 +289,13 @@ export async function activate(context: vscode.ExtensionContext) {
   // Command: Privacy Status — confirm local-only data posture
   context.subscriptions.push(
     vscode.commands.registerCommand("elevate.showPrivacyStatus", () => {
-      const ollamaUrl = vscode.workspace.getConfiguration("elevate").get<string>("ollamaUrl", "http://localhost:11434");
-      const retentionDays2 = vscode.workspace.getConfiguration("elevate").get<number>("privacy.jobRetentionDays", 30);
+      const privacyCfg = vscode.workspace.getConfiguration("elevate");
+      const ollamaUrl = privacyCfg.get<string>("ollamaUrl", "http://localhost:11434");
+      const retentionDays = privacyCfg.get<number>("privacy.jobRetentionDays", 30);
       vscode.window.showInformationMessage(
         `ELEVATE Privacy: Local-only mode active. ` +
         `Ollama endpoint: ${ollamaUrl}. ` +
-        `Job history auto-deleted after ${retentionDays2} days. ` +
+        `Job history auto-deleted after ${retentionDays} days. ` +
         `No data is sent to external servers.`
       );
     })

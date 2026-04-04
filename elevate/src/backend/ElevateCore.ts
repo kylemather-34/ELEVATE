@@ -234,6 +234,10 @@ export class ElevateCore {
     return this.queue.cancelJob(jobId);
   }
 
+  getStore(): JobStore {
+    return this.store;
+  }
+
   async runPipeline(ctx: ElevateContext): Promise<void> {
     return this.pipeline.execute(ctx);
   }
