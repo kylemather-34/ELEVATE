@@ -16,7 +16,10 @@
     "onCommand:elevate.runPrompt",
     "onCommand:elevate.cancelJob",
     "onCommand:elevate.openBackendStatus",
-    "onCommand:elevate.showCursorPosition"
+    "onCommand:elevate.showCursorPosition",
+    "onCommand:elevate.forgetMe",
+    "onCommand:elevate.exportProgress",
+    "onCommand:elevate.showPrivacyStatus"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -40,6 +43,18 @@
       {
         "command": "elevate.showCursorPosition",
         "title": "ELEVATE: Show Cursor Position"
+      },
+      {
+        "command": "elevate.forgetMe",
+        "title": "ELEVATE: Forget Me (Delete All Data)"
+      },
+      {
+        "command": "elevate.exportProgress",
+        "title": "ELEVATE: Export Progress"
+      },
+      {
+        "command": "elevate.showPrivacyStatus",
+        "title": "ELEVATE: Privacy Status"
       }
     ],
     "configuration": {
@@ -98,6 +113,12 @@
           "type": "string",
           "default": "**/*",
           "description": "Glob for file system watcher."
+        },
+        "elevate.privacy.jobRetentionDays": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "description": "Automatically delete job history older than this many days on startup."
         }
       }
     }
