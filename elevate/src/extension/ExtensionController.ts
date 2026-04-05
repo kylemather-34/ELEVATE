@@ -38,7 +38,6 @@ export class ExtensionController implements vscode.Disposable {
         this.logger.info(`[analysis] complete for: ${result.uri} (${result.modelResponse.length} chars)`);
         this._onAnalysisComplete.fire(result);
         this.responsePanel?.update(result.modelResponse);
-        // TODO next sprint: push diagnostics/squiggles
     }
 
     public activateResponsePanel(context: vscode.ExtensionContext): void {

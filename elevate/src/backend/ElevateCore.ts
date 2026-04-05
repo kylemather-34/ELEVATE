@@ -62,6 +62,11 @@ export class ElevateCore {
       const key = this.getFileKey(e.document);
       this.queue.setFileVersion(key, e.document.version);
     });
+
+    // clear diagnostics when a file is closed
+    vscode.workspace.onDidCloseTextDocument((doc) => {
+      this.diagnosticCollection.delete(doc.uri);
+    });
   }
 
   // unique key per file
@@ -272,9 +277,10 @@ export class ElevateCore {
   }
 }
 
-function resolveSeverity(word: string): vscode.DiagnosticSeverity {
-  if (["error", "critical", "fatal"].some(k => word.includes(k))) return vscode.DiagnosticSeverity.Error;
-  if (["warning", "warn", "caution"].some(k => word.includes(k)))  return vscode.DiagnosticSeverity.Warning;
-  if (["hint", "suggestion", "note", "info"].some(k => word.includes(k))) return vscode.DiagnosticSeverity.Hint;
-  return vscode.DiagnosticSeverity.Information;
+function resolveSeverity(severity: "error" | "warning" | "info"): vscode.DiagnosticSeverity {
+  switch (severity) {
+    case "error":   return vscode.DiagnosticSeverity.Error;
+    case "warning": return vscode.DiagnosticSeverity.Warning;
+    case "info":    return vscode.DiagnosticSeverity.Information;
+  }
 }
