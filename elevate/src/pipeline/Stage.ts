@@ -6,6 +6,7 @@ import { writeFile, readFile, unlink } from "fs/promises";
 import * as os from "os";
 import * as path from "path";
 import { OllamaClient } from "../backend/OllamaClient";
+import { ModelAnalysisResult } from "../backend/types";
 import { Logger } from "../util/Logger";
 
 export interface Stage {
@@ -124,6 +125,21 @@ export class PromptBuilderStage implements Stage {
     }
 }
 
+function parseModelResponse(raw: string): ModelAnalysisResult | undefined{
+    try{
+        const parsed = JSON.parse(raw);
+
+        // Validate that the response has the shape we expect
+        if(typeof parsed.structural_summary === "string" && Array.isArray(parsed.issues)){
+            return parsed as ModelAnalysisResult;
+        }
+        return undefined;
+    }catch{
+        //Model doesn't return valid JSON - fail gracefully to prevent crashes
+        return undefined;
+    }
+}
+
 export class OllamaStage implements Stage {
     name = "Ollama Stage";
 
@@ -161,5 +177,12 @@ export class OllamaStage implements Stage {
         }
 
         ctx.modelResponse = response;
+        ctx.analysisResult = parseModelResponse(response);
+
+        if(ctx.analysisResult) {
+            logger.info(`OllamaStage: parsed ${ctx.analysisResult.issues.length} issue(s) from model response`);
+        } else {
+            logger.info("OllamaStage: model response was not valid JSON - analysisResult not set");
+        }
     }
 }
