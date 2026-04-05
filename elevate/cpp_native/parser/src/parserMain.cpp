@@ -43,6 +43,7 @@ int main(int argc, char *argv[])
         {
             lineNumber++;
             string trimmed = Parser::trim(line);
+            trimmed = Parser::stripComment(trimmed);
             if (trimmed.empty()) continue;
 
             BlockEvent lineEvent;

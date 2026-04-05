@@ -56,6 +56,8 @@ namespace Parser
     vector<BlockEvent> parseFile(ifstream &file); // Reads the file and returns a vector of all block events
     int countIndent(const string &line);          // Counts leading whitespace to determine indentation level
     string trim(const string &line);              // Removes leading and trailing whitespace
+    string stripComment(const string &line);      // Removes inline and full line comments
+    string sanitizeText(const string &line);      // Removes non printable control characters
     bool startBlock(const string &line);          // Determines the start of each block
     BlockType detectType(const string &line);     // Determines the type of each block
 };
