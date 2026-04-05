@@ -93,11 +93,11 @@ export class ResponsePanel implements vscode.Disposable {
             margin: 0;
         }
         h2 {
-            font-size: 0.85em;
-            font-weight: 600;
+            font-size: 1em;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.06em;
-            color: var(--vscode-descriptionForeground);
+            color: var(--vscode-editor-foreground);
             margin: 20px 0 8px 0;
             padding-bottom: 4px;
             border-bottom: 1px solid var(--vscode-panel-border);
