@@ -126,14 +126,31 @@ export class PromptBuilderStage implements Stage {
 }
 
 function parseModelResponse(raw: string): ModelAnalysisResult | undefined{
-    try{
-        const parsed = JSON.parse(raw);
+    // Extract the first complete JSON object from the response.
+    // Models sometimes prepend prose before the JSON, so we find the
+    // first '{' and last '}' rather than parsing the whole string.
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start === -1 || end === -1 || end < start) return undefined;
 
-        // Validate that the response has the shape we expect
-        if(typeof parsed.structural_summary === "string" && Array.isArray(parsed.issues)){
-            return parsed as ModelAnalysisResult;
+    try{
+        const parsed = JSON.parse(raw.slice(start, end + 1));
+
+        // Validate that all required fields are present and have the correct types
+        if (typeof parsed.structural_summary !== "string")  return undefined;
+        if (!Array.isArray(parsed.issues))                  return undefined;
+        if (typeof parsed.complexity !== "string")          return undefined;
+        if (!Array.isArray(parsed.improvements))            return undefined;
+
+        for (const issue of parsed.issues) {
+            if (typeof issue.line !== "number")             return undefined;
+            if (typeof issue.description !== "string")     return undefined;
+            if (issue.severity !== "error" &&
+                issue.severity !== "warning" &&
+                issue.severity !== "info")                  return undefined;
         }
-        return undefined;
+
+        return parsed as ModelAnalysisResult;
     }catch{
         //Model doesn't return valid JSON - fail gracefully to prevent crashes
         return undefined;
@@ -152,6 +169,7 @@ export class OllamaStage implements Stage {
          * falling back to llama3.2:3b.
          * Streams the response from Ollama chunk by chunk, accumulating
          * the full text, then stores it in ctx.modelResponse for the caller.
+         * If the response fails JSON validation, retries once with a correction message.
          */
         if (!ctx.prompt || ctx.prompt.length === 0) {
             throw new Error("OllamaStage: no prompt set on context");
@@ -163,26 +181,49 @@ export class OllamaStage implements Stage {
 
         logger.info(`OllamaStage: sending prompt to model "${model}"`);
 
-        const abort = new AbortController();
-        let response = "";
-
-        for await (const chunk of this.client.chatStream({
-            model,
-            messages: ctx.prompt,
-            signal: abort.signal,
-        })) {
-            if (chunk.delta) {
-                response += chunk.delta;
-            }
-        }
-
+        const response = await this.streamResponse(ctx.prompt, model);
         ctx.modelResponse = response;
         ctx.analysisResult = parseModelResponse(response);
 
-        if(ctx.analysisResult) {
+        if (ctx.analysisResult) {
             logger.info(`OllamaStage: parsed ${ctx.analysisResult.issues.length} issue(s) from model response`);
-        } else {
-            logger.info("OllamaStage: model response was not valid JSON - analysisResult not set");
+            return;
         }
+
+        // Retry: send the bad response back and ask the model to correct it
+        logger.info("OllamaStage: response was not valid JSON — retrying with correction message");
+
+        const correctionMessages: import("../backend/types").ChatMessage[] = [
+            ...ctx.prompt,
+            { role: "assistant", content: response },
+            { role: "user", content:
+                "Your previous response was not valid JSON. " +
+                "Respond with ONLY the raw JSON object — no explanation, no prose, no markdown. " +
+                "Start your response with '{' and end with '}'."
+            },
+        ];
+
+        const retryResponse = await this.streamResponse(correctionMessages, model);
+        ctx.modelResponse = retryResponse;
+        ctx.analysisResult = parseModelResponse(retryResponse);
+
+        if (ctx.analysisResult) {
+            logger.info(`OllamaStage: retry succeeded, parsed ${ctx.analysisResult.issues.length} issue(s)`);
+        } else {
+            logger.info("OllamaStage: retry failed — analysisResult not set");
+        }
+    }
+
+    private async streamResponse(messages: import("../backend/types").ChatMessage[], model: string): Promise<string> {
+        const abort = new AbortController();
+        let response = "";
+        for await (const chunk of this.client.chatStream({
+            model,
+            messages,
+            signal: abort.signal,
+        })) {
+            if (chunk.delta) response += chunk.delta;
+        }
+        return response;
     }
 }
