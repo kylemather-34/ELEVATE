@@ -130,7 +130,7 @@ function parseModelResponse(raw: string): ModelAnalysisResult | undefined{
         const parsed = JSON.parse(raw);
 
         // Validate that the response has the shape we expect
-        if(typeof parsed.structual_summary === "string" && Array.isArray(parsed.issues)){
+        if(typeof parsed.structural_summary === "string" && Array.isArray(parsed.issues)){
             return parsed as ModelAnalysisResult;
         }
         return undefined;
@@ -180,7 +180,7 @@ export class OllamaStage implements Stage {
         ctx.analysisResult = parseModelResponse(response);
 
         if(ctx.analysisResult) {
-            logger.info('OllamaStage: parsed ${ctx.analysisResult.issies.length} issue(s) from model response');
+            logger.info(`OllamaStage: parsed ${ctx.analysisResult.issues.length} issue(s) from model response`);
         } else {
             logger.info("OllamaStage: model response was not valid JSON - analysisResult not set");
         }

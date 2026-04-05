@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
 import { FileSnapshot, snapshot } from '../backend/FileSnapshot';
 import { BlockEvent } from './parserTypes';
-import { ChatMessage } from './types';
-import { ModelAnalysisResult } from './types';
+import { ChatMessage, ModelAnalysisResult } from './types';
 
 export class ElevateContext {
     // File snapshot with version numbers and full text before analysis

@@ -79,7 +79,7 @@ export interface ErrorMetadata{
 }
 
 export interface ModelAnalysisResult{
-  structual_summary: string;
+  structural_summary: string;
   issues: ErrorMetadata[];
   complexity: string;
   improvements: Array<{
