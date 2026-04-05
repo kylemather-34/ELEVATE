@@ -115,7 +115,7 @@ export class ExtensionController implements vscode.Disposable {
                 this.logger.info(`[analysis] started on save: ${doc.uri.toString()} (version=${doc.version})`);
                 if (this.statusBar) this.statusBar.text ='$(sync~spin) Elevate: Analyzing...';
                 const ctx = new ElevateContext(doc);
-                ctx.cursorLine = vscode.window.activeTextEditor?.selection.active.line;
+                // No cursorLine set — analyzes the whole file on save
 
                 try {
                     await this.backend.runPipeline(ctx);
