@@ -84,16 +84,19 @@ export class ExtensionController implements vscode.Disposable {
                     return;
                 }
 
-                if (ctx.modelResponse) {
-                    if (this.statusBar) this.statusBar.text ='$(check) Elevate: Done';
+                if (ctx.modelResponse && ctx.analysisResult) {
+                    if (this.statusBar) this.statusBar.text = '$(check) Elevate: Done';
                     this.logger.logResponseFinal(ctx.modelResponse);
                     this.handleAnalysisComplete({
                         uri: ctx.snapshot?.uri ?? document.uri.toString(),
                         modelResponse: ctx.modelResponse,
                         snapshot: ctx.snapshot,
                     });
+                } else if (ctx.modelResponse && !ctx.analysisResult) {
+                    if (this.statusBar) this.statusBar.text = '$(warning) Elevate: Could not parse response';
+                    this.logger.info('[analysis] response was not valid JSON after retry.');
                 } else {
-                    if (this.statusBar) this.statusBar.text ='$(circle-outline) Elevate: Idle';
+                    if (this.statusBar) this.statusBar.text = '$(circle-outline) Elevate: Idle';
                     this.logger.info('[analysis] pipeline completed with no model response.');
                 }
             }
@@ -126,16 +129,19 @@ export class ExtensionController implements vscode.Disposable {
                     return;
                 }
 
-                if (ctx.modelResponse) {
-                    if (this.statusBar) this.statusBar.text ='$(check) Elevate: Done';
+                if (ctx.modelResponse && ctx.analysisResult) {
+                    if (this.statusBar) this.statusBar.text = '$(check) Elevate: Done';
                     this.logger.logResponseFinal(ctx.modelResponse);
                     this.handleAnalysisComplete({
                         uri: ctx.snapshot?.uri ?? doc.uri.toString(),
                         modelResponse: ctx.modelResponse,
                         snapshot: ctx.snapshot,
                     });
+                } else if (ctx.modelResponse && !ctx.analysisResult) {
+                    if (this.statusBar) this.statusBar.text = '$(warning) Elevate: Could not parse response';
+                    this.logger.info('[analysis] response was not valid JSON after retry.');
                 } else {
-                    if (this.statusBar) this.statusBar.text ='$(circle-outline) Elevate: Idle';
+                    if (this.statusBar) this.statusBar.text = '$(circle-outline) Elevate: Idle';
                     this.logger.info('[analysis] pipeline completed with no model response.');
                 }
             },
