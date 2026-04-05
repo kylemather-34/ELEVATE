@@ -40,6 +40,10 @@
       {
         "command": "elevate.showCursorPosition",
         "title": "ELEVATE: Show Cursor Position"
+      },
+      {
+        "command": "elevate.openResponsePanel",
+        "title": "ELEVATE: Open Response Panel"
       }
     ],
     "configuration": {

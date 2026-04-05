@@ -4,6 +4,7 @@ import { ElevateCore } from '../backend/ElevateCore';
 import { FileSnapshot } from '../backend/FileSnapshot';
 import { Logger } from '../util/Logger';
 import { EditListener } from './editListener';
+import { ResponsePanel } from './ResponsePanel';
 
 // The result produced after a full pipeline run — passed to VSCode via the event below.
 export interface AnalysisResult {
@@ -24,6 +25,7 @@ export class ExtensionController implements vscode.Disposable {
     public readonly onAnalysisComplete = this._onAnalysisComplete.event;
 
     private statusBar?: vscode.StatusBarItem;
+    private responsePanel?: ResponsePanel;
 
     constructor(
         private readonly backend: ElevateCore,
@@ -32,11 +34,20 @@ export class ExtensionController implements vscode.Disposable {
 
     // Called every time a pipeline run succeeds and produces a model response.
     // Fires onAnalysisComplete so all subscribers are notified.
-    // Next sprint: add response panel update and diagnostics/squiggles here.
     private handleAnalysisComplete(result: AnalysisResult): void {
         this.logger.info(`[analysis] complete for: ${result.uri} (${result.modelResponse.length} chars)`);
         this._onAnalysisComplete.fire(result);
-        // TODO next sprint: update response panel, push diagnostics/squiggles
+        this.responsePanel?.update(result.modelResponse);
+        // TODO next sprint: push diagnostics/squiggles
+    }
+
+    public activateResponsePanel(context: vscode.ExtensionContext): void {
+        this.responsePanel = new ResponsePanel(context);
+        context.subscriptions.push(this.responsePanel);
+    }
+
+    public showResponsePanel(): void {
+        this.responsePanel?.show();
     }
 
     public dispose(): void {
