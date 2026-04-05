@@ -71,3 +71,19 @@ export interface ModelsResponse {
   tags: any;
   ps: any;
 }
+
+export interface ErrorMetadata{
+  line: number;
+  severity: "error" | "warning" | "info";
+  description: string;
+}
+
+export interface ModelAnalysisResult{
+  structual_summary: string;
+  issues: ErrorMetadata[];
+  complexity: string;
+  improvements: Array<{
+    description: string;
+    reasoning: string;
+  }>;
+}
