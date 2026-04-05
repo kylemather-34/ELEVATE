@@ -245,13 +245,19 @@ export class ElevateCore {
   async runPipeline(ctx: ElevateContext): Promise<void> {
     await this.pipeline.execute(ctx);
 
-    if (!ctx.modelResponse || !ctx.snapshot?.uri) return;
+    if (!ctx.snapshot?.uri) return;
 
     const uri = vscode.Uri.parse(ctx.snapshot.uri);
-    const diagnostics = parseModelResponse(ctx.modelResponse);
+    const diagnostics = ctx.analysisResult
+      ? ctx.analysisResult.issues.map(issue => new vscode.Diagnostic(
+          new vscode.Range(issue.line - 1, 0, issue.line - 1, Number.MAX_SAFE_INTEGER),
+          issue.description,
+          resolveSeverity(issue.severity)
+        ))
+      : [];
     this.diagnosticCollection.set(uri, diagnostics);
     ctx.diagnostics = diagnostics;
-}
+  }
 
   async waitForTerminalStatus(jobId: string): Promise<JobRecord> {
     while (true) {
@@ -264,42 +270,6 @@ export class ElevateCore {
       await new Promise((r) => setTimeout(r, 100));
     }
   }
-}
-
-function parseModelResponse(response: string): vscode.Diagnostic[] {
-  const results: vscode.Diagnostic[] = [];
-
-  const lineFirst = /\bline\s+(\d+)\s*[:\-]\s*([\w\s]+?)\s*[:\-]\s*(.+)/gi;
-  const severityFirst = /\b(error|warning|warn|hint|suggestion|note|info|critical|fatal)\s+(?:on|at)\s+line\s+(\d+)\s*[:\-]?\s*(.+)/gi;
-
-  for (const match of response.matchAll(lineFirst)) {
-    const line = parseInt(match[1], 10) - 1;
-    const severity = resolveSeverity(match[2].trim().toLowerCase());
-    const message = match[3].trim();
-    if (line < 0 || !message) continue;
-    results.push(new vscode.Diagnostic(
-      new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER),
-      message,
-      severity
-    ));
-  }
-
-  for (const match of response.matchAll(severityFirst)) {
-    const line = parseInt(match[2], 10) - 1;
-    const severity = resolveSeverity(match[1].trim().toLowerCase());
-    const message = match[3].trim();
-    if (line < 0 || !message) continue;
-    const dupe = results.some(d => d.range.start.line === line && d.message === message);
-    if (!dupe) {
-      results.push(new vscode.Diagnostic(
-        new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER),
-        message,
-        severity
-      ));
-    }
-  }
-
-  return results;
 }
 
 function resolveSeverity(word: string): vscode.DiagnosticSeverity {
