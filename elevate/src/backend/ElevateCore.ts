@@ -6,7 +6,6 @@ import { JobStore } from "./JobStore";
 import { SseHub } from "./SSEHub";
 import { OllamaClient } from "./OllamaClient";
 import { CreateChatJobRequest, HealthResponse, JobEvent, JobRecord, JobStatus, ModelsResponse } from "./types";
-import { isoNow } from "../util/time";
 import { Pipeline } from "../pipeline/Pipeline";
 import { SanitizationStage, ParseStage, PromptBuilderStage, OllamaStage } from "../pipeline/Stage";
 import { Logger } from "../util/Logger";
@@ -21,6 +20,7 @@ export class ElevateCore {
   private ollama: OllamaClient;
   private logger: Logger;
   private pipeline: Pipeline;
+  private diagnosticCollection: vscode.DiagnosticCollection;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -40,9 +40,16 @@ export class ElevateCore {
 
     this.logger = new Logger(output);
     this.pipeline = new Pipeline(
-      [new SanitizationStage(), new ParseStage(parserBin), new PromptBuilderStage(promptBuilderBin), new OllamaStage(this.ollama)],
+      [
+        new SanitizationStage(),
+        new ParseStage(parserBin),
+        new PromptBuilderStage(promptBuilderBin),
+        new OllamaStage(this.ollama),
+      ],
       this.logger
     );
+
+    this.diagnosticCollection = vscode.languages.createDiagnosticCollection("elevate");
 
     // keep file versions on updated save
     vscode.workspace.onDidSaveTextDocument((doc) => {
@@ -54,6 +61,11 @@ export class ElevateCore {
     vscode.workspace.onDidChangeTextDocument((e) => {
       const key = this.getFileKey(e.document);
       this.queue.setFileVersion(key, e.document.version);
+    });
+
+    // clear diagnostics when a file is closed
+    vscode.workspace.onDidCloseTextDocument((doc) => {
+      this.diagnosticCollection.delete(doc.uri);
     });
   }
 
@@ -212,6 +224,7 @@ export class ElevateCore {
     this.queue.stop();
     void this.server?.close();
     this.server = null;
+    this.diagnosticCollection.dispose();
   }
 
   async health(): Promise<HealthResponse> {
@@ -235,7 +248,20 @@ export class ElevateCore {
   }
 
   async runPipeline(ctx: ElevateContext): Promise<void> {
-    return this.pipeline.execute(ctx);
+    await this.pipeline.execute(ctx);
+
+    if (!ctx.snapshot?.uri) return;
+
+    const uri = vscode.Uri.parse(ctx.snapshot.uri);
+    const diagnostics = ctx.analysisResult
+      ? ctx.analysisResult.issues.map(issue => new vscode.Diagnostic(
+          new vscode.Range(issue.line - 1, 0, issue.line - 1, Number.MAX_SAFE_INTEGER),
+          issue.description,
+          resolveSeverity(issue.severity)
+        ))
+      : [];
+    this.diagnosticCollection.set(uri, diagnostics);
+    ctx.diagnostics = diagnostics;
   }
 
   async waitForTerminalStatus(jobId: string): Promise<JobRecord> {
@@ -248,5 +274,13 @@ export class ElevateCore {
       }
       await new Promise((r) => setTimeout(r, 100));
     }
+  }
+}
+
+function resolveSeverity(severity: "error" | "warning" | "info"): vscode.DiagnosticSeverity {
+  switch (severity) {
+    case "error":   return vscode.DiagnosticSeverity.Error;
+    case "warning": return vscode.DiagnosticSeverity.Warning;
+    case "info":    return vscode.DiagnosticSeverity.Information;
   }
 }

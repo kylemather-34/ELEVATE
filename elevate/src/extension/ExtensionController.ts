@@ -38,7 +38,6 @@ export class ExtensionController implements vscode.Disposable {
         this.logger.info(`[analysis] complete for: ${result.uri} (${result.modelResponse.length} chars)`);
         this._onAnalysisComplete.fire(result);
         this.responsePanel?.update(result.modelResponse);
-        // TODO next sprint: push diagnostics/squiggles
     }
 
     public activateResponsePanel(context: vscode.ExtensionContext): void {
@@ -119,7 +118,7 @@ export class ExtensionController implements vscode.Disposable {
                 this.logger.info(`[analysis] started on save: ${doc.uri.toString()} (version=${doc.version})`);
                 if (this.statusBar) this.statusBar.text ='$(sync~spin) Elevate: Analyzing...';
                 const ctx = new ElevateContext(doc);
-                ctx.cursorLine = vscode.window.activeTextEditor?.selection.active.line;
+                // No cursorLine set — analyzes the whole file on save
 
                 try {
                     await this.backend.runPipeline(ctx);
