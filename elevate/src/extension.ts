@@ -33,6 +33,19 @@ export async function activate(context: vscode.ExtensionContext) {
     );
   }
 
+  // Check if Ollama is reachable and warn the user if not.
+  const ollamaReachable = await backend.checkOllama();
+  if (!ollamaReachable) {
+    output.appendLine("[ELEVATE] Ollama is not reachable.");
+    const action = await vscode.window.showWarningMessage(
+      "ELEVATE: Ollama is not running. Start it with `ollama serve`, or enable \"Launch at Login\" in the Ollama menu bar app.",
+      "Open Ollama Docs"
+    );
+    if (action === "Open Ollama Docs") {
+      vscode.env.openExternal(vscode.Uri.parse("https://ollama.com/download"));
+    }
+  }
+
   const stateManager = new CoreStateManager();
   stateManager.initialize();
 

@@ -231,6 +231,15 @@ export class ElevateCore {
     return { ok: true, ollama_url: vscode.workspace.getConfiguration("elevate").get("ollamaUrl") ?? "http://localhost:11434" };
   }
 
+  async checkOllama(): Promise<boolean> {
+    try {
+      await this.ollama.tags();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async enqueueChatJob(args: { priority: number; model: string; messages: any[]; keep_alive?: string; options?: any }) {
     return this.queue.enqueueChatJob(args as any);
   }
