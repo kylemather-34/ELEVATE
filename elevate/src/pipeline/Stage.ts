@@ -82,6 +82,46 @@ function filterToActiveBlock(events: BlockEvent[], cursorLine?: number): BlockEv
     return blockStart === -1 ? events : events.slice(blockStart, blockEnd);
 }
 
+function applyUserRules(promptText: string): string {
+    const cfg = vscode.workspace.getConfiguration("elevate");
+    const verbosity = cfg.get<string>("verbosity", "balanced");
+    const teachingStyle = cfg.get<string>("teachingStyle", "direct");
+    const customRules = cfg.get<string>("customRules", "").trim();
+
+    const lines: string[] = [];
+
+    if (verbosity === "concise") {
+        lines.push("- Keep all feedback brief. Limit issues to the 2–3 most important. Use short sentences.");
+    } else if (verbosity === "verbose") {
+        lines.push("- Be thorough and detailed. Explain concepts fully. Include all issues you find.");
+    }
+
+    if (teachingStyle === "socratic") {
+        lines.push("- Use a Socratic approach: phrase issues as guiding questions that lead the student to discover the problem themselves.");
+    } else if (teachingStyle === "step-by-step") {
+        lines.push("- Break every explanation into numbered steps, walking the student through reasoning one step at a time.");
+    }
+
+    if (customRules) {
+        lines.push(`- ${customRules}`);
+    }
+
+    if (lines.length === 0) {
+        return promptText;
+    }
+
+    const userRulesSection = "User Preferences:\n" + lines.join("\n") + "\n\n";
+
+    // Insert before the output format section so it doesn't override the JSON schema instruction
+    const marker = "Output Format (STRICT";
+    const markerIdx = promptText.indexOf(marker);
+    if (markerIdx !== -1) {
+        return promptText.slice(0, markerIdx) + userRulesSection + promptText.slice(markerIdx);
+    }
+
+    return promptText + "\n" + userRulesSection;
+}
+
 export class PromptBuilderStage implements Stage {
     name = "Prompt Builder Stage";
 
@@ -114,7 +154,8 @@ export class PromptBuilderStage implements Stage {
             proc.on("error", reject);
         });
 
-        const promptText = await readFile(outputPath, "utf-8");
+        const rawPromptText = await readFile(outputPath, "utf-8");
+        const promptText = applyUserRules(rawPromptText);
 
         ctx.prompt = [{ role: "user", content: promptText }];
 
