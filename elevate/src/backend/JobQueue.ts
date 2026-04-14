@@ -109,7 +109,7 @@ export class JobQueue {
     }
   }
 
-    const job_id = String(Date.now()) + String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+    const job_id = randomUUID();
 
     
     const now = isoNow();
