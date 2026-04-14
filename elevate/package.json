@@ -102,6 +102,33 @@
           "type": "string",
           "default": "**/*",
           "description": "Glob for file system watcher."
+        },
+        "elevate.verbosity": {
+          "type": "string",
+          "enum": ["concise", "balanced", "verbose"],
+          "enumDescriptions": [
+            "Short responses — only the most important 2–3 issues, brief explanations.",
+            "Default balanced detail level.",
+            "Thorough responses — explain concepts fully, include all issues found."
+          ],
+          "default": "balanced",
+          "description": "Controls how detailed the analysis feedback is."
+        },
+        "elevate.teachingStyle": {
+          "type": "string",
+          "enum": ["direct", "socratic", "step-by-step"],
+          "enumDescriptions": [
+            "State issues and improvements plainly and directly.",
+            "Phrase issues as guiding questions that lead the student to discover problems themselves.",
+            "Break every explanation into numbered steps, walking the student through reasoning one step at a time."
+          ],
+          "default": "direct",
+          "description": "Controls the instructional style used in feedback."
+        },
+        "elevate.customRules": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Additional instructions appended to every analysis prompt. Enter one rule per line — each line becomes a separate instruction (e.g. `Always mention time complexity.\\nFocus on readability over cleverness.`)."
         }
       }
     }
