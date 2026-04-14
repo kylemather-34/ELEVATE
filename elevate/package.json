@@ -128,7 +128,7 @@
         "elevate.customRules": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Additional instructions appended to every analysis prompt. Use this to add personal preferences or focus areas (e.g. `Always mention time complexity. Focus on readability over cleverness.`)."
+          "markdownDescription": "Additional instructions appended to every analysis prompt. Enter one rule per line — each line becomes a separate instruction (e.g. `Always mention time complexity.\\nFocus on readability over cleverness.`)."
         }
       }
     }

@@ -82,11 +82,18 @@ function filterToActiveBlock(events: BlockEvent[], cursorLine?: number): BlockEv
     return blockStart === -1 ? events : events.slice(blockStart, blockEnd);
 }
 
-function applyUserRules(promptText: string): string {
-    const cfg = vscode.workspace.getConfiguration("elevate");
-    const verbosity = cfg.get<string>("verbosity", "balanced");
-    const teachingStyle = cfg.get<string>("teachingStyle", "direct");
-    const customRules = cfg.get<string>("customRules", "").trim();
+// Matches the opening of the output format section in cpp_native/prompt_builder/src/template.cpp.
+// If that string changes, injection falls back to appending (which may degrade model output format).
+const OUTPUT_FORMAT_MARKER = "Output Format (STRICT";
+
+export interface UserRulesOptions {
+    verbosity: string;
+    teachingStyle: string;
+    customRules: string;
+}
+
+export function applyUserRules(promptText: string, opts: UserRulesOptions, logger: Logger): string {
+    const { verbosity, teachingStyle, customRules } = opts;
 
     const lines: string[] = [];
 
@@ -103,7 +110,9 @@ function applyUserRules(promptText: string): string {
     }
 
     if (customRules) {
-        lines.push(`- ${customRules}`);
+        for (const rule of customRules.split('\n').map(r => r.trim()).filter(r => r.length > 0)) {
+            lines.push(`- ${rule}`);
+        }
     }
 
     if (lines.length === 0) {
@@ -113,12 +122,14 @@ function applyUserRules(promptText: string): string {
     const userRulesSection = "User Preferences:\n" + lines.join("\n") + "\n\n";
 
     // Insert before the output format section so it doesn't override the JSON schema instruction
-    const marker = "Output Format (STRICT";
-    const markerIdx = promptText.indexOf(marker);
+    const markerIdx = promptText.indexOf(OUTPUT_FORMAT_MARKER);
     if (markerIdx !== -1) {
         return promptText.slice(0, markerIdx) + userRulesSection + promptText.slice(markerIdx);
     }
 
+    // Fallback: marker not found — prompt_builder output may have changed.
+    // Appending after the output format section may degrade JSON compliance.
+    logger.warn("applyUserRules: output format marker not found in prompt — appending user rules at end");
     return promptText + "\n" + userRulesSection;
 }
 
@@ -155,7 +166,12 @@ export class PromptBuilderStage implements Stage {
         });
 
         const rawPromptText = await readFile(outputPath, "utf-8");
-        const promptText = applyUserRules(rawPromptText);
+        const cfg = vscode.workspace.getConfiguration("elevate");
+        const promptText = applyUserRules(rawPromptText, {
+            verbosity: cfg.get<string>("verbosity", "balanced"),
+            teachingStyle: cfg.get<string>("teachingStyle", "direct"),
+            customRules: cfg.get<string>("customRules", "").trim(),
+        }, logger);
 
         ctx.prompt = [{ role: "user", content: promptText }];
 
