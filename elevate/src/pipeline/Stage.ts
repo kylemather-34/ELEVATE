@@ -166,7 +166,7 @@ export class OllamaStage implements Stage {
         /*
          * Requires ctx.prompt to be populated by PromptBuilderStage.
          * Reads the target model from VSCode settings (elevate.defaultModel),
-         * falling back to llama3.2:3b.
+         * falling back to qwen2.5-coder:latest.
          * Streams the response from Ollama chunk by chunk, accumulating
          * the full text, then stores it in ctx.modelResponse for the caller.
          * If the response fails JSON validation, retries once with a correction message.
@@ -177,7 +177,7 @@ export class OllamaStage implements Stage {
 
         const model = vscode.workspace
             .getConfiguration("elevate")
-            .get<string>("defaultModel") ?? "llama3.2:3b";
+            .get<string>("defaultModel") ?? "qwen2.5-coder:latest";
 
         logger.info(`OllamaStage: sending prompt to model "${model}"`);
 
