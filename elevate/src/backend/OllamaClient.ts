@@ -59,7 +59,13 @@ export class OllamaClient {
         buffer = buffer.slice(idx + 1);
         if (!line) continue;
 
-        const raw = JSON.parse(line);
+        let raw: any;
+        try {
+          raw = JSON.parse(line);
+        } catch {
+          console.warn(`[OllamaClient] Skipping malformed NDJSON line: ${line}`);
+          continue;
+        }
         const delta = raw?.message?.content ?? "";
         yield { delta, raw };
 
