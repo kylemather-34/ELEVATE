@@ -7,7 +7,7 @@ import { SseHub } from "./SSEHub";
 import { OllamaClient } from "./OllamaClient";
 import { CreateChatJobRequest, HealthResponse, JobEvent, JobRecord, JobStatus, ModelsResponse } from "./types";
 import { Pipeline } from "../pipeline/Pipeline";
-import { SanitizationStage, ParseStage, PromptBuilderStage, OllamaStage } from "../pipeline/Stage";
+import { ParseStage, PromptBuilderStage, OllamaStage } from "../pipeline/Stage";
 import { Logger } from "../util/Logger";
 import { ElevateContext } from "./ElevateContext";
 import * as path from "path";
@@ -41,7 +41,6 @@ export class ElevateCore {
     this.logger = new Logger(output);
     this.pipeline = new Pipeline(
       [
-        new SanitizationStage(),
         new ParseStage(parserBin),
         new PromptBuilderStage(promptBuilderBin),
         new OllamaStage(this.ollama),
@@ -228,7 +227,9 @@ export class ElevateCore {
   }
 
   async health(): Promise<HealthResponse> {
-    return { ok: true, ollama_url: vscode.workspace.getConfiguration("elevate").get("ollamaUrl") ?? "http://localhost:11434" };
+    const ollamaUrl = vscode.workspace.getConfiguration("elevate").get("ollamaUrl") as string ?? "http://localhost:11434";
+    const ok = await this.checkOllama();
+    return { ok, ollama_url: ollamaUrl };
   }
 
   async checkOllama(): Promise<boolean> {
@@ -273,16 +274,37 @@ export class ElevateCore {
     ctx.diagnostics = diagnostics;
   }
 
-  async waitForTerminalStatus(jobId: string): Promise<JobRecord> {
-    while (true) {
-      const job = await this.queue.getJob(jobId);
-      if (!job) throw new Error(`Job not found: ${jobId}`);
+  waitForTerminalStatus(jobId: string): Promise<JobRecord> {
+    const terminal = new Set([JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELED]);
 
-      if ([JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELED].includes(job.status)) {
-        return job;
-      }
-      await new Promise((r) => setTimeout(r, 100));
-    }
+    return new Promise((resolve, reject) => {
+      let settled = false;
+
+      const settle = (fn: () => void) => {
+        if (settled) return;
+        settled = true;
+        unsub();
+        fn();
+      };
+
+      const unsub = this.hub.subscribe(jobId, (evt) => {
+        if (evt.event_type === "STATUS" && terminal.has(evt.payload.status)) {
+          settle(() => {
+            this.queue.getJob(jobId)
+              .then((job) => job ? resolve(job) : reject(new Error(`Job not found: ${jobId}`)))
+              .catch(reject);
+          });
+        }
+      });
+
+      // Resolve immediately if the job already reached a terminal state before we subscribed.
+      this.queue.getJob(jobId)
+        .then((job) => {
+          if (!job) { settle(() => reject(new Error(`Job not found: ${jobId}`))); return; }
+          if (terminal.has(job.status)) { settle(() => resolve(job)); }
+        })
+        .catch((err) => settle(() => reject(err)));
+    });
   }
 }
 

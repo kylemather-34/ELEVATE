@@ -41,8 +41,18 @@ export class JobStore {
     const idx = jobs.findIndex((j) => j.job_id === job.job_id);
     if (idx >= 0) jobs[idx] = job;
     else jobs.unshift(job);
-    // keep last 200
+    // keep last 200, delete text files for pruned jobs
+    const pruned = jobs.slice(200);
     await this.saveAll(jobs.slice(0, 200));
+    await Promise.all(pruned.map((j) => this.deleteResultText(j.job_id)));
+  }
+
+  private async deleteResultText(jobId: string): Promise<void> {
+    try {
+      await vscode.workspace.fs.delete(this.jobTextUri(jobId));
+    } catch {
+      // file may not exist, ignore
+    }
   }
 
   async setResultText(jobId: string, text: string): Promise<void> {

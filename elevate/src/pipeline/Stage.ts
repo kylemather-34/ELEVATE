@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { ElevateContext } from "../backend/ElevateContext";
 import { BlockEvent } from "../backend/parserTypes";
 import { spawn } from "child_process";
+import { randomUUID } from "crypto";
 import { writeFile, readFile, unlink } from "fs/promises";
 import * as os from "os";
 import * as path from "path";
@@ -12,13 +13,6 @@ import { Logger } from "../util/Logger";
 export interface Stage {
     name: string;
     run(ctx: ElevateContext, logger: Logger): Promise<void>;
-}
-
-export class SanitizationStage implements Stage {
-    name = "Sanitization Stage";
-    async run(_ctx: ElevateContext, _logger: Logger): Promise<void> {
-
-    }
 }
 
 export class ParseStage implements Stage {
@@ -34,8 +28,8 @@ export class ParseStage implements Stage {
 
         logger.debug(`ParseStage: parsing ${code.length} chars`);
 
-        const inputPath = path.join(os.tmpdir(), `elevate_in_${Date.now()}.py`);
-        const outputPath = path.join(os.tmpdir(), `elevate_out_${Date.now()}.json`);
+        const inputPath = path.join(os.tmpdir(), `elevate_in_${randomUUID()}.py`);
+        const outputPath = path.join(os.tmpdir(), `elevate_out_${randomUUID()}.json`);
 
         await writeFile(inputPath, code, "utf-8");
 
@@ -146,8 +140,8 @@ export class PromptBuilderStage implements Stage {
         const events = filterToActiveBlock(ctx.parsed, ctx.cursorLine);
         logger.debug(`PromptBuilderStage: building prompt from ${events.length}/${ctx.parsed.length} block event(s) (cursorLine=${ctx.cursorLine})`);
 
-        const inputPath = path.join(os.tmpdir(), `elevate_prompt_in_${Date.now()}.json`);
-        const outputPath = path.join(os.tmpdir(), `elevate_prompt_out_${Date.now()}.txt`);
+        const inputPath = path.join(os.tmpdir(), `elevate_prompt_in_${randomUUID()}.json`);
+        const outputPath = path.join(os.tmpdir(), `elevate_prompt_out_${randomUUID()}.txt`);
 
         await writeFile(inputPath, JSON.stringify(events), "utf-8");
 

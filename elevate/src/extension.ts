@@ -4,7 +4,7 @@ import { JobEvent, JobRecord, JobStatus } from "./backend/types";
 import { CursorTracker } from "./extension/cursorTracker";
 import { Logger } from "./util/Logger";
 import { ExtensionController } from "./extension/ExtensionController";
-import { loadSettings } from "./backend/StorageLayer";
+import { loadElevateState, saveElevateState } from "./backend/StorageLayer";
 import { CoreStateManager } from "./backend/CoreStateManager";
 
 let backend: ElevateCore | undefined;
@@ -18,9 +18,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
   backend = new ElevateCore(context, output);
 
-  // Load persisted settings on activation
-  const settings = loadSettings(context);
-  output.appendLine("[ELEVATE Loaded Settings: " + JSON.stringify(settings));
+  // Restore persisted state from previous session
+  const persistedState = loadElevateState(context);
+  output.appendLine(`[ELEVATE] Restored ${persistedState.recentFeedback.length} feedback entries from previous session.`);
 
   // Start backend on activation, but don't crash activation if it fails.
   try {
@@ -48,6 +48,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const stateManager = new CoreStateManager();
   stateManager.initialize();
+  stateManager.getSession().restoreFeedback(persistedState.recentFeedback);
+  if (persistedState.lastActiveFile) {
+    stateManager.getSession().setActiveFile(persistedState.lastActiveFile);
+  }
 
   const controller = new ExtensionController(backend, logger);
   controller.activateStatusBar(context);
@@ -61,6 +65,11 @@ export async function activate(context: vscode.ExtensionContext) {
       stateManager.getSession().setActiveFile(result.snapshot);
     }
     stateManager.getSession().addFeedback(result.modelResponse);
+    stateManager.saveState(result.ctx);
+    saveElevateState(context, {
+      recentFeedback: stateManager.getSession().getRecentFeedback(),
+      lastActiveFile: stateManager.getSession().getActiveFile(),
+    });
   });
 
   context.subscriptions.push(
@@ -68,11 +77,6 @@ export async function activate(context: vscode.ExtensionContext) {
       controller.showResponsePanel();
     })
   );
-
-  // Next sprint: diagnostics — parses the model response and pushes inline squiggles to the editor.
-  controller.onAnalysisComplete((_result) => {
-    // TODO next sprint: diagnosticsProvider.set(_result.uri, _result.modelResponse);
-  });
 
   const cfg = vscode.workspace.getConfiguration("elevate");
 
