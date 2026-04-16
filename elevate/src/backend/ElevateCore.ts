@@ -228,7 +228,9 @@ export class ElevateCore {
   }
 
   async health(): Promise<HealthResponse> {
-    return { ok: true, ollama_url: vscode.workspace.getConfiguration("elevate").get("ollamaUrl") ?? "http://localhost:11434" };
+    const ollamaUrl = vscode.workspace.getConfiguration("elevate").get("ollamaUrl") as string ?? "http://localhost:11434";
+    const ok = await this.checkOllama();
+    return { ok, ollama_url: ollamaUrl };
   }
 
   async checkOllama(): Promise<boolean> {
