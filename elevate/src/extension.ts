@@ -61,6 +61,7 @@ export async function activate(context: vscode.ExtensionContext) {
       stateManager.getSession().setActiveFile(result.snapshot);
     }
     stateManager.getSession().addFeedback(result.modelResponse);
+    stateManager.saveState(result.ctx);
   });
 
   context.subscriptions.push(

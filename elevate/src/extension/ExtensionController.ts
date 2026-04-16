@@ -11,6 +11,7 @@ export interface AnalysisResult {
     uri: string;           // file that was analysed
     modelResponse: string; // text returned by Ollama
     snapshot?: FileSnapshot;
+    ctx: ElevateContext;
 }
 
 // ExtensionController is the communication layer between VSCode events (file open, save)
@@ -91,6 +92,7 @@ export class ExtensionController implements vscode.Disposable {
                         uri: ctx.snapshot?.uri ?? document.uri.toString(),
                         modelResponse: ctx.modelResponse,
                         snapshot: ctx.snapshot,
+                        ctx,
                     });
                 } else if (ctx.modelResponse && !ctx.analysisResult) {
                     if (this.statusBar) { this.statusBar.text = '$(warning) Elevate: Could not parse response'; }
@@ -137,6 +139,7 @@ export class ExtensionController implements vscode.Disposable {
                         uri: ctx.snapshot?.uri ?? doc.uri.toString(),
                         modelResponse: ctx.modelResponse,
                         snapshot: ctx.snapshot,
+                        ctx,
                     });
                 } else if (ctx.modelResponse && !ctx.analysisResult) {
                     if (this.statusBar) this.statusBar.text = '$(warning) Elevate: Could not parse response';
