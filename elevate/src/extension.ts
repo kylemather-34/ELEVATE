@@ -69,11 +69,6 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Next sprint: diagnostics — parses the model response and pushes inline squiggles to the editor.
-  controller.onAnalysisComplete((_result) => {
-    // TODO next sprint: diagnosticsProvider.set(_result.uri, _result.modelResponse);
-  });
-
   const cfg = vscode.workspace.getConfiguration("elevate");
 
   const cursorEnabled = cfg.get<boolean>("cursorTracking.enabled", true);
