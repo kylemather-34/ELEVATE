@@ -274,16 +274,37 @@ export class ElevateCore {
     ctx.diagnostics = diagnostics;
   }
 
-  async waitForTerminalStatus(jobId: string): Promise<JobRecord> {
-    while (true) {
-      const job = await this.queue.getJob(jobId);
-      if (!job) throw new Error(`Job not found: ${jobId}`);
+  waitForTerminalStatus(jobId: string): Promise<JobRecord> {
+    const terminal = new Set([JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELED]);
 
-      if ([JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELED].includes(job.status)) {
-        return job;
-      }
-      await new Promise((r) => setTimeout(r, 100));
-    }
+    return new Promise((resolve, reject) => {
+      let settled = false;
+
+      const settle = (fn: () => void) => {
+        if (settled) return;
+        settled = true;
+        unsub();
+        fn();
+      };
+
+      const unsub = this.hub.subscribe(jobId, (evt) => {
+        if (evt.event_type === "STATUS" && terminal.has(evt.payload.status)) {
+          settle(() => {
+            this.queue.getJob(jobId)
+              .then((job) => job ? resolve(job) : reject(new Error(`Job not found: ${jobId}`)))
+              .catch(reject);
+          });
+        }
+      });
+
+      // Resolve immediately if the job already reached a terminal state before we subscribed.
+      this.queue.getJob(jobId)
+        .then((job) => {
+          if (!job) { settle(() => reject(new Error(`Job not found: ${jobId}`))); return; }
+          if (terminal.has(job.status)) { settle(() => resolve(job)); }
+        })
+        .catch((err) => settle(() => reject(err)));
+    });
   }
 }
 
