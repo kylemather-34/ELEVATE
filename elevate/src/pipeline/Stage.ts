@@ -15,13 +15,6 @@ export interface Stage {
     run(ctx: ElevateContext, logger: Logger): Promise<void>;
 }
 
-export class SanitizationStage implements Stage {
-    name = "Sanitization Stage";
-    async run(_ctx: ElevateContext, _logger: Logger): Promise<void> {
-
-    }
-}
-
 export class ParseStage implements Stage {
     name = "Parse Stage";
 

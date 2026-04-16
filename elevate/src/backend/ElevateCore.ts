@@ -7,7 +7,7 @@ import { SseHub } from "./SSEHub";
 import { OllamaClient } from "./OllamaClient";
 import { CreateChatJobRequest, HealthResponse, JobEvent, JobRecord, JobStatus, ModelsResponse } from "./types";
 import { Pipeline } from "../pipeline/Pipeline";
-import { SanitizationStage, ParseStage, PromptBuilderStage, OllamaStage } from "../pipeline/Stage";
+import { ParseStage, PromptBuilderStage, OllamaStage } from "../pipeline/Stage";
 import { Logger } from "../util/Logger";
 import { ElevateContext } from "./ElevateContext";
 import * as path from "path";
@@ -41,7 +41,6 @@ export class ElevateCore {
     this.logger = new Logger(output);
     this.pipeline = new Pipeline(
       [
-        new SanitizationStage(),
         new ParseStage(parserBin),
         new PromptBuilderStage(promptBuilderBin),
         new OllamaStage(this.ollama),
