@@ -31,6 +31,10 @@ export class SessionContext {
         return this.recentFeedback;
     }
 
+    public restoreFeedback(feedback: Feedback[]): void {
+        this.recentFeedback = [...feedback];
+    }
+
     public clearFeedback(): void {
         this.recentFeedback = [];
     }
