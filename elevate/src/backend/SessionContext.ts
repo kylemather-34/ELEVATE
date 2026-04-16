@@ -7,6 +7,8 @@ export interface Feedback {
     response: string;
 }
 
+const MAX_FEEDBACK = 50;
+
 export class SessionContext {
     private activeFile?: FileSnapshot;
     private recentFeedback: Feedback[] = [];
@@ -25,6 +27,9 @@ export class SessionContext {
             filePath: this.activeFile?.uri ?? 'unknown',
             response
         });
+        if (this.recentFeedback.length > MAX_FEEDBACK) {
+            this.recentFeedback.shift();
+        }
     }
 
     public getRecentFeedback(): Feedback[] {
