@@ -1,63 +1,119 @@
 import * as assert from 'assert';
-import { buildSettings } from '../backend/StorageLayer';
+import { saveElevateState, loadElevateState, ElevatePersistedState } from '../backend/StorageLayer';
 
-suite('StorageLayer.buildSettings', () => {
-    test('returns defaults for empty input', () => {
-        const s = buildSettings({});
-        assert.strictEqual(s.theme, 'light');
-        assert.strictEqual(s.notificationsEnabled, true);
-        assert.strictEqual(s.language, 'en');
+function makeContext(initial?: ElevatePersistedState) {
+    const store: Record<string, unknown> = {};
+    if (initial !== undefined) {
+        store['elevate.state'] = initial;
+    }
+    return {
+        globalState: {
+            get<T>(key: string, defaultValue: T): T {
+                return key in store ? (store[key] as T) : defaultValue;
+            },
+            update(key: string, value: unknown): Thenable<void> {
+                store[key] = value;
+                return Promise.resolve();
+            },
+        },
+    } as any;
+}
+
+suite('StorageLayer', () => {
+    suite('loadElevateState', () => {
+        test('returns default when nothing persisted', () => {
+            const ctx = makeContext();
+            const state = loadElevateState(ctx);
+            assert.deepStrictEqual(state, { recentFeedback: [] });
+        });
+
+        test('returns persisted state', () => {
+            const persisted: ElevatePersistedState = {
+                recentFeedback: [{ timestamp: 't', filePath: 'f', response: 'r' }],
+            };
+            const ctx = makeContext(persisted);
+            const state = loadElevateState(ctx);
+            assert.deepStrictEqual(state, persisted);
+        });
+
+        test('returns persisted state with lastActiveFile', () => {
+            const persisted: ElevatePersistedState = {
+                recentFeedback: [],
+                lastActiveFile: { uri: 'file:///a.ts', language: 'typescript', version: 3, text: 'x' },
+            };
+            const ctx = makeContext(persisted);
+            assert.deepStrictEqual(loadElevateState(ctx), persisted);
+        });
     });
 
-    test('accepts "dark" theme', () => {
-        assert.strictEqual(buildSettings({ theme: 'dark' }).theme, 'dark');
-    });
+    suite('saveElevateState', () => {
+        test('persisted state can be loaded back', () => {
+            const ctx = makeContext();
+            const state: ElevatePersistedState = {
+                recentFeedback: [{ timestamp: 't', filePath: 'f', response: 'r' }],
+            };
+            saveElevateState(ctx, state);
+            assert.deepStrictEqual(loadElevateState(ctx), state);
+        });
 
-    test('accepts "light" theme explicitly', () => {
-        assert.strictEqual(buildSettings({ theme: 'light' }).theme, 'light');
-    });
+        test('caps recentFeedback at 50 entries', () => {
+            const ctx = makeContext();
+            const feedback = Array.from({ length: 60 }, (_, i) => ({
+                timestamp: `t${i}`,
+                filePath: 'f',
+                response: `r${i}`,
+            }));
+            saveElevateState(ctx, { recentFeedback: feedback });
+            const loaded = loadElevateState(ctx);
+            assert.strictEqual(loaded.recentFeedback.length, 50);
+        });
 
-    test('unrecognized theme string defaults to "light"', () => {
-        assert.strictEqual(buildSettings({ theme: 'blue' }).theme, 'light');
-    });
+        test('keeps the most recent entries when capping', () => {
+            const ctx = makeContext();
+            const feedback = Array.from({ length: 60 }, (_, i) => ({
+                timestamp: `t${i}`,
+                filePath: 'f',
+                response: `r${i}`,
+            }));
+            saveElevateState(ctx, { recentFeedback: feedback });
+            const loaded = loadElevateState(ctx);
+            assert.strictEqual(loaded.recentFeedback[0].response, 'r10');
+            assert.strictEqual(loaded.recentFeedback[49].response, 'r59');
+        });
 
-    test('non-string theme defaults to "light"', () => {
-        assert.strictEqual(buildSettings({ theme: 42 }).theme, 'light');
-        assert.strictEqual(buildSettings({ theme: null }).theme, 'light');
-    });
+        test('does not mutate the input state', () => {
+            const ctx = makeContext();
+            const feedback = Array.from({ length: 60 }, (_, i) => ({
+                timestamp: `t${i}`,
+                filePath: 'f',
+                response: `r${i}`,
+            }));
+            const state: ElevatePersistedState = { recentFeedback: feedback };
+            saveElevateState(ctx, state);
+            assert.strictEqual(state.recentFeedback.length, 60);
+        });
 
-    test('boolean false for notificationsEnabled', () => {
-        assert.strictEqual(buildSettings({ notificationsEnabled: false }).notificationsEnabled, false);
-    });
+        test('preserves lastActiveFile', () => {
+            const ctx = makeContext();
+            const state: ElevatePersistedState = {
+                recentFeedback: [],
+                lastActiveFile: { uri: 'file:///b.ts', language: 'typescript', version: 1, text: '' },
+            };
+            saveElevateState(ctx, state);
+            assert.deepStrictEqual(loadElevateState(ctx).lastActiveFile, state.lastActiveFile);
+        });
 
-    test('boolean true for notificationsEnabled', () => {
-        assert.strictEqual(buildSettings({ notificationsEnabled: true }).notificationsEnabled, true);
-    });
-
-    test('string "true" is coerced to true', () => {
-        assert.strictEqual(buildSettings({ notificationsEnabled: 'true' }).notificationsEnabled, true);
-    });
-
-    test('string "false" is coerced to false', () => {
-        assert.strictEqual(buildSettings({ notificationsEnabled: 'false' }).notificationsEnabled, false);
-    });
-
-    test('non-boolean/string notificationsEnabled defaults to true', () => {
-        assert.strictEqual(buildSettings({ notificationsEnabled: 42 }).notificationsEnabled, true);
-        assert.strictEqual(buildSettings({ notificationsEnabled: null }).notificationsEnabled, true);
-    });
-
-    test('language string is passed through', () => {
-        assert.strictEqual(buildSettings({ language: 'fr' }).language, 'fr');
-        assert.strictEqual(buildSettings({ language: 'ja' }).language, 'ja');
-    });
-
-    test('empty string language defaults to "en"', () => {
-        assert.strictEqual(buildSettings({ language: '' }).language, 'en');
-    });
-
-    test('non-string language defaults to "en"', () => {
-        assert.strictEqual(buildSettings({ language: 99 }).language, 'en');
-        assert.strictEqual(buildSettings({ language: null }).language, 'en');
+        test('overwrites previously saved state', () => {
+            const ctx = makeContext();
+            saveElevateState(ctx, {
+                recentFeedback: [{ timestamp: 't1', filePath: 'f', response: 'first' }],
+            });
+            saveElevateState(ctx, {
+                recentFeedback: [{ timestamp: 't2', filePath: 'f', response: 'second' }],
+            });
+            const loaded = loadElevateState(ctx);
+            assert.strictEqual(loaded.recentFeedback.length, 1);
+            assert.strictEqual(loaded.recentFeedback[0].response, 'second');
+        });
     });
 });
