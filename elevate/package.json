@@ -68,7 +68,7 @@
         },
         "elevate.defaultModel": {
           "type": "string",
-          "default": "llama3.2:3b",
+          "default": "qwen2.5-coder:latest",
           "description": "Default Ollama model name"
         },
         "elevate.cursorTracking.enabled": {

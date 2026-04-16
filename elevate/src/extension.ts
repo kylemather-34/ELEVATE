@@ -146,7 +146,7 @@ export async function activate(context: vscode.ExtensionContext) {
       if (!backend) return;
 
       const cfg = vscode.workspace.getConfiguration("elevate");
-      const model = cfg.get<string>("defaultModel") ?? "llama3.1:latest";
+      const model = cfg.get<string>("defaultModel") ?? "qwen2.5-coder:latest";
 
       const prompt = await vscode.window.showInputBox({
         title: "ELEVATE (Ollama)",
