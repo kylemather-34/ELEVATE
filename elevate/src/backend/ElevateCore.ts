@@ -33,7 +33,6 @@ export class ElevateCore {
     const concurrency = cfg.get<number>("concurrency") ?? 1;
 
     this.ollama = new OllamaClient(ollamaUrl);
-    this.queue = new JobQueue(this.store, this.hub, this.ollama, { concurrency });
 
     const parserBin = path.join(context.extensionUri.fsPath, "cpp_native", "build", "bin", "parser");
     const promptBuilderBin = path.join(context.extensionUri.fsPath, "cpp_native", "build", "bin", "prompt_builder");
@@ -47,6 +46,18 @@ export class ElevateCore {
       ],
       this.logger
     );
+
+    this.queue = new JobQueue(this.store, this.hub, this.ollama, { concurrency }, async (payload, _signal) => {
+      const ctx = new ElevateContext(payload.fileText);
+      ctx.analysisTarget = payload.fileText;
+      ctx.cursorLine = payload.cursorLine;
+      await this.pipeline.execute(ctx);
+      return {
+        modelResponse: ctx.modelResponse ?? "",
+        analysisResult: ctx.analysisResult,
+        ollamaMetrics: ctx.ollamaMetrics,
+      };
+    });
 
     this.diagnosticCollection = vscode.languages.createDiagnosticCollection("elevate");
 
@@ -176,6 +187,59 @@ export class ElevateCore {
       });
     });
 
+    router.add("GET", "/v1/stats", async (_req, res) => {
+      const all = await this.store.loadAll();
+      const done = all.filter(j => j.status === "succeeded" && j.started_at && j.finished_at);
+
+      const percentile = (arr: number[], p: number) => {
+        if (!arr.length) return null;
+        const sorted = [...arr].sort((a, b) => a - b);
+        const idx = Math.max(0, Math.ceil((p / 100) * sorted.length) - 1);
+        return Math.round(sorted[idx]);
+      };
+
+      const queueWaits = done.map(j => new Date(j.started_at!).getTime() - new Date(j.created_at).getTime());
+      const totalDurations = done.map(j => new Date(j.finished_at!).getTime() - new Date(j.started_at!).getTime());
+      const inferenceMs = done.filter(j => j.metrics?.eval_duration).map(j => Math.round(j.metrics!.eval_duration / 1e6));
+      const tokensPerSec = done.filter(j => j.metrics?.eval_count && j.metrics?.eval_duration).map(j => Math.round(j.metrics!.eval_count / (j.metrics!.eval_duration / 1e9)));
+      const promptTokens = done.filter(j => j.metrics?.prompt_eval_count).map(j => j.metrics!.prompt_eval_count as number);
+      const completionTokens = done.filter(j => j.metrics?.eval_count).map(j => j.metrics!.eval_count as number);
+
+      const agg = (arr: number[]) => arr.length === 0 ? null : {
+        count: arr.length,
+        avg: Math.round(arr.reduce((s, v) => s + v, 0) / arr.length),
+        min: Math.min(...arr),
+        max: Math.max(...arr),
+        p50: percentile(arr, 50),
+        p95: percentile(arr, 95),
+      };
+
+      const jobs = done.map(j => ({
+        job_id: j.job_id,
+        model: j.model,
+        queue_wait_ms: new Date(j.started_at!).getTime() - new Date(j.created_at).getTime(),
+        total_duration_ms: new Date(j.finished_at!).getTime() - new Date(j.started_at!).getTime(),
+        inference_ms: j.metrics?.eval_duration ? Math.round(j.metrics.eval_duration / 1e6) : null,
+        prompt_tokens: j.metrics?.prompt_eval_count ?? null,
+        completion_tokens: j.metrics?.eval_count ?? null,
+        tokens_per_sec: (j.metrics?.eval_count && j.metrics?.eval_duration) ? Math.round(j.metrics.eval_count / (j.metrics.eval_duration / 1e9)) : null,
+      }));
+
+      HttpServer.json(res, 200, {
+        total_jobs: all.length,
+        succeeded_jobs: done.length,
+        canceled_jobs: all.filter(j => j.status === "canceled").length,
+        failed_jobs: all.filter(j => j.status === "failed").length,
+        queue_wait_ms: agg(queueWaits),
+        total_duration_ms: agg(totalDurations),
+        inference_ms: agg(inferenceMs),
+        tokens_per_sec: agg(tokensPerSec),
+        total_prompt_tokens: promptTokens.reduce((s, v) => s + v, 0),
+        total_completion_tokens: completionTokens.reduce((s, v) => s + v, 0),
+        jobs,
+      });
+    });
+
     // SSE events: /v1/jobs/:id/events?after=0
     router.add("GET", "/v1/jobs/:id/events", async (req, res, ctx) => {
       const jobId = ctx.params.id;
@@ -258,11 +322,33 @@ export class ElevateCore {
   }
 
   async runPipeline(ctx: ElevateContext): Promise<void> {
-    await this.pipeline.execute(ctx);
+    const fileText = ctx.analysisTarget ?? ctx.snapshot?.text ?? ctx.text ?? "";
+    const fileUri = ctx.snapshot?.uri ?? "";
+    const version = ctx.snapshot?.version ?? ctx.version ?? 0;
 
-    if (!ctx.snapshot?.uri) return;
+    const job = await this.queue.enqueuePipelineJob({
+      fileText,
+      fileUri,
+      cursorLine: ctx.cursorLine,
+      version,
+      priority: 5,
+    });
 
-    const uri = vscode.Uri.parse(ctx.snapshot.uri);
+    const done = await this.waitForTerminalStatus(job.job_id);
+
+    if (done.status === JobStatus.FAILED) {
+      throw new Error(done.error ?? "Pipeline job failed");
+    }
+
+    if (done.status === JobStatus.SUCCEEDED) {
+      ctx.modelResponse = done.result_text ?? undefined;
+      ctx.analysisResult = done.analysis_result ?? undefined;
+      ctx.ollamaMetrics = done.metrics ?? undefined;
+    }
+
+    if (!fileUri) { return; }
+
+    const uri = vscode.Uri.parse(fileUri);
     const diagnostics = ctx.analysisResult
       ? ctx.analysisResult.issues.map(issue => new vscode.Diagnostic(
           new vscode.Range(issue.line - 1, 0, issue.line - 1, Number.MAX_SAFE_INTEGER),
