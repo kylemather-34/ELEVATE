@@ -1,0 +1,132 @@
+{
+    "total_jobs": 18,
+    "succeeded_jobs": 9,
+    "canceled_jobs": 8,
+    "failed_jobs": 0,
+    "queue_wait_ms": {
+        "count": 9,
+        "avg": 2216,
+        "min": 27,
+        "max": 8814,
+        "p50": 908,
+        "p95": 8814
+    },
+    "total_duration_ms": {
+        "count": 9,
+        "avg": 6313,
+        "min": 4798,
+        "max": 11008,
+        "p50": 5556,
+        "p95": 11008
+    },
+    "inference_ms": {
+        "count": 9,
+        "avg": 4741,
+        "min": 3731,
+        "max": 6758,
+        "p50": 4575,
+        "p95": 6758
+    },
+    "tokens_per_sec": {
+        "count": 9,
+        "avg": 66,
+        "min": 64,
+        "max": 68,
+        "p50": 66,
+        "p95": 68
+    },
+    "total_prompt_tokens": 21233,
+    "total_completion_tokens": 2803,
+    "jobs": [
+        {
+            "job_id": "91dd15f0-b4da-4148-b0cd-ddc417c94afc",
+            "model": "pipeline",
+            "queue_wait_ms": 5398,
+            "total_duration_ms": 7766,
+            "inference_ms": 6758,
+            "prompt_tokens": 1847,
+            "completion_tokens": 446,
+            "tokens_per_sec": 66
+        },
+        {
+            "job_id": "060c35a2-b829-48a2-a218-75d663c8e19d",
+            "model": "pipeline",
+            "queue_wait_ms": 2451,
+            "total_duration_ms": 5556,
+            "inference_ms": 4114,
+            "prompt_tokens": 3050,
+            "completion_tokens": 268,
+            "tokens_per_sec": 65
+        },
+        {
+            "job_id": "85f7e511-e671-4088-bbf2-d222c3188b83",
+            "model": "pipeline",
+            "queue_wait_ms": 1170,
+            "total_duration_ms": 5487,
+            "inference_ms": 5139,
+            "prompt_tokens": 1603,
+            "completion_tokens": 337,
+            "tokens_per_sec": 66
+        },
+        {
+            "job_id": "fd118305-d174-4da1-991d-f6f5454e8270",
+            "model": "pipeline",
+            "queue_wait_ms": 126,
+            "total_duration_ms": 5138,
+            "inference_ms": 4009,
+            "prompt_tokens": 2381,
+            "completion_tokens": 263,
+            "tokens_per_sec": 66
+        },
+        {
+            "job_id": "603cc00b-8daa-41e0-bde3-de6ebd7c8d4f",
+            "model": "pipeline",
+            "queue_wait_ms": 879,
+            "total_duration_ms": 5695,
+            "inference_ms": 5289,
+            "prompt_tokens": 2311,
+            "completion_tokens": 347,
+            "tokens_per_sec": 66
+        },
+        {
+            "job_id": "f7c775ed-0bf1-439e-9833-63f3c580434b",
+            "model": "pipeline",
+            "queue_wait_ms": 27,
+            "total_duration_ms": 4798,
+            "inference_ms": 4235,
+            "prompt_tokens": 3021,
+            "completion_tokens": 273,
+            "tokens_per_sec": 64
+        },
+        {
+            "job_id": "1e204636-3d30-4c43-b7ec-a57d606fbc3e",
+            "model": "pipeline",
+            "queue_wait_ms": 174,
+            "total_duration_ms": 6506,
+            "inference_ms": 4820,
+            "prompt_tokens": 3021,
+            "completion_tokens": 313,
+            "tokens_per_sec": 65
+        },
+        {
+            "job_id": "d754a12e-9f80-4f91-bbbf-9488fa2d366c",
+            "model": "pipeline",
+            "queue_wait_ms": 8814,
+            "total_duration_ms": 4866,
+            "inference_ms": 4575,
+            "prompt_tokens": 2207,
+            "completion_tokens": 304,
+            "tokens_per_sec": 66
+        },
+        {
+            "job_id": "d73f4c13-4860-4bdd-89fd-6f51f849b1cb",
+            "model": "pipeline",
+            "queue_wait_ms": 908,
+            "total_duration_ms": 11008,
+            "inference_ms": 3731,
+            "prompt_tokens": 1792,
+            "completion_tokens": 252,
+            "tokens_per_sec": 68
+        }
+    ]
+}
