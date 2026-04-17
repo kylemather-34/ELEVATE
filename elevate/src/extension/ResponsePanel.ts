@@ -49,7 +49,10 @@ export class ResponsePanel implements vscode.Disposable {
 
     private parseResponse(raw: string): AnalysisResponse | null {
         try {
-            const parsed = JSON.parse(raw);
+            const start = raw.indexOf('{');
+            const end = raw.lastIndexOf('}');
+            if (start === -1 || end === -1 || end < start) return null;
+            const parsed = JSON.parse(raw.slice(start, end + 1));
             if (
                 typeof parsed.structural_summary === 'string' &&
                 Array.isArray(parsed.issues) &&
