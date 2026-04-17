@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
         switch(event.kind)
         {
             case EventKind::START:
-                obj["event"] = "start";
+                obj["event"] = "START";
                 break;
             case EventKind::END:
                 obj["event"] = "END";
