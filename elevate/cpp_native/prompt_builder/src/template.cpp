@@ -48,7 +48,8 @@ int main(int argc, char *argv[]){
         "Task:\n"
         "Perform a complete static analysis audit of the code described by the metadata below.\n"
         "You must NOT give generic or surface-level feedback. Aggressively identify ALL issues.\n"
-        "If you MISS ANY ISSUE, especially security vulnerabilities, reliability problems, or runtime failures, it is considered a failure of the audit.\n\n"
+        "If you MISS ANY ISSUE, especially security vulnerabilities, reliability problems, or runtime failures, \n"
+        "it is considered a failure of the audit.\n\n"
 
         "1. Summarize what the code does in 3-5 sentences for structural_summary.\n\n"
 
