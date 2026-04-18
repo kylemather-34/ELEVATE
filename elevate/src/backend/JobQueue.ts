@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { JobRecord, JobStatus, JobEvent, ChatMessage } from "./types";
+import { JobRecord, JobStatus, JobEvent, ChatMessage, ModelAnalysisResult } from "./types";
 import { isoNow } from "../util/time";
 import { JobStore } from "./JobStore";
 import { SseHub } from "./SSEHub";
@@ -8,6 +8,20 @@ import { OllamaClient } from "./OllamaClient";
 export interface QueueConfig {
   concurrency: number; // 1..4
 }
+
+export interface PipelineJobPayload {
+  fileText: string;
+  fileUri: string;
+  cursorLine?: number;
+}
+
+export interface PipelineJobResult {
+  modelResponse: string;
+  analysisResult?: ModelAnalysisResult | null;
+  ollamaMetrics?: any;
+}
+
+export type PipelineExecutor = (payload: PipelineJobPayload, signal: AbortSignal) => Promise<PipelineJobResult>;
 
 type Enqueued = {
   jobId: string;
@@ -28,7 +42,8 @@ export class JobQueue {
     private readonly store: JobStore,
     private readonly hub: SseHub,
     private readonly ollama: OllamaClient,
-    private readonly cfg: QueueConfig
+    private readonly cfg: QueueConfig,
+    private readonly pipelineExecutor?: PipelineExecutor,
   ) {}
 
   setFileVersion(key: string, version: number) {
@@ -145,6 +160,48 @@ export class JobQueue {
     return job;
   }
 
+  async enqueuePipelineJob(args: {
+    fileText: string;
+    fileUri: string;
+    cursorLine?: number;
+    version?: number;
+    priority?: number;
+  }): Promise<JobRecord> {
+    const analysis_key = args.fileUri;
+
+    const existingJobId = this.activeByKey.get(analysis_key);
+    if (existingJobId) {
+      await this.cancelJob(existingJobId);
+    }
+
+    const job_id = randomUUID();
+    const now = isoNow();
+    const job: JobRecord = {
+      job_id,
+      type: "PIPELINE_ANALYSIS",
+      priority: Math.max(0, Math.min(9, args.priority ?? 5)),
+      model: "pipeline",
+      status: JobStatus.QUEUED,
+      version: args.version ?? 0,
+      created_at: now,
+      updated_at: now,
+      started_at: null,
+      finished_at: null,
+      payload: { fileText: args.fileText, fileUri: args.fileUri, cursorLine: args.cursorLine, analysis_key },
+      result_text: null,
+      error: null,
+      metrics: null,
+      analysis_result: null,
+    };
+
+    await this.setJob(job);
+    this.activeByKey.set(analysis_key, job_id);
+    this.queue.push({ jobId: job_id, priority: job.priority, enqueuedAt: Date.now() });
+    this.sortQueue();
+    this.emit(job_id, "STATUS", { status: JobStatus.QUEUED });
+    return job;
+  }
+
   async cancelJob(jobId: string): Promise<{ job_id: string; previous_status: JobStatus; new_status: JobStatus }> {
     const job = await this.getJob(jobId);
     if (!job) throw new Error(`Job not found: ${jobId}`);
@@ -223,65 +280,102 @@ export class JobQueue {
       this.controllers.set(job.job_id, controller);
 
       try {
-        let full = "";
-        let finalMetrics: any = null;
+        if (job.type === "PIPELINE_ANALYSIS") {
+          if (!this.pipelineExecutor) throw new Error("No pipeline executor registered");
 
-        const messages = job.payload?.messages ?? [];
-        for await (const part of this.ollama.chatStream({
-          model: job.model,
-          messages,
-          options: job.options ?? {},
-          keep_alive: job.keep_alive ?? "5m",
-          signal: controller.signal,
-        })) {
-        
-          const currentKey = job.payload?.analysis_key;
-          const currentVersion = currentKey ? this.fileVersions.get(currentKey) : undefined;
-          const versionStale = currentKey && currentVersion !== undefined && currentVersion !== job.version;
-          const keyStale = currentKey && this.activeByKey.get(currentKey) !== job.job_id;
+          const result = await this.pipelineExecutor(
+            {
+              fileText: job.payload?.fileText ?? "",
+              fileUri: job.payload?.fileUri ?? "",
+              cursorLine: job.payload?.cursorLine,
+            },
+            controller.signal
+          );
 
-          if (versionStale || keyStale) {
-            controller.abort();
-            throw new Error("stale_job");
+          const refreshed = await this.getJob(job.job_id);
+          if (refreshed?.status === JobStatus.CANCEL_REQUESTED || controller.signal.aborted) {
+            job.status = JobStatus.CANCELED;
+            job.updated_at = isoNow();
+            job.finished_at = isoNow();
+            await this.setJob(job);
+            this.emit(job.job_id, "STATUS", { status: JobStatus.CANCELED });
+            continue;
           }
 
-          if (controller.signal.aborted) throw new Error("aborted");
-
-          const delta = part.delta ?? "";
-          if (delta) {
-            full += delta;
-            this.emit(job.job_id, "OUTPUT_CHUNK", { delta });
-          }
-          if (part.raw?.done) {
-            finalMetrics = part.raw;
-            break;
-          }
-        }
-
-        // if cancel requested, mark canceled even if stream ended
-        const refreshed = await this.getJob(job.job_id);
-        const wasCancelRequested = refreshed?.status === JobStatus.CANCEL_REQUESTED;
-
-        if (wasCancelRequested || controller.signal.aborted) {
-          job.status = JobStatus.CANCELED;
+          job.status = JobStatus.SUCCEEDED;
           job.updated_at = isoNow();
           job.finished_at = isoNow();
+          job.result_text = result.modelResponse;
+          job.metrics = result.ollamaMetrics ?? null;
+          job.analysis_result = result.analysisResult ?? null;
+
+          await this.store.setResultText(job.job_id, result.modelResponse);
           await this.setJob(job);
-          this.emit(job.job_id, "STATUS", { status: JobStatus.CANCELED });
-          continue;
+
+          this.emit(job.job_id, "METRIC", { metrics: job.metrics });
+          this.emit(job.job_id, "STATUS", { status: JobStatus.SUCCEEDED });
+
+        } else {
+          let full = "";
+          let finalMetrics: any = null;
+
+          const messages = job.payload?.messages ?? [];
+          for await (const part of this.ollama.chatStream({
+            model: job.model,
+            messages,
+            options: job.options ?? {},
+            keep_alive: job.keep_alive ?? "5m",
+            signal: controller.signal,
+          })) {
+
+            const currentKey = job.payload?.analysis_key;
+            const currentVersion = currentKey ? this.fileVersions.get(currentKey) : undefined;
+            const versionStale = currentKey && currentVersion !== undefined && currentVersion !== job.version;
+            const keyStale = currentKey && this.activeByKey.get(currentKey) !== job.job_id;
+
+            if (versionStale || keyStale) {
+              controller.abort();
+              throw new Error("stale_job");
+            }
+
+            if (controller.signal.aborted) throw new Error("aborted");
+
+            const delta = part.delta ?? "";
+            if (delta) {
+              full += delta;
+              this.emit(job.job_id, "OUTPUT_CHUNK", { delta });
+            }
+            if (part.raw?.done) {
+              finalMetrics = part.raw;
+              break;
+            }
+          }
+
+          // if cancel requested, mark canceled even if stream ended
+          const refreshed = await this.getJob(job.job_id);
+          const wasCancelRequested = refreshed?.status === JobStatus.CANCEL_REQUESTED;
+
+          if (wasCancelRequested || controller.signal.aborted) {
+            job.status = JobStatus.CANCELED;
+            job.updated_at = isoNow();
+            job.finished_at = isoNow();
+            await this.setJob(job);
+            this.emit(job.job_id, "STATUS", { status: JobStatus.CANCELED });
+            continue;
+          }
+
+          job.status = JobStatus.SUCCEEDED;
+          job.updated_at = isoNow();
+          job.finished_at = isoNow();
+          job.result_text = full;
+          job.metrics = finalMetrics ?? null;
+
+          await this.store.setResultText(job.job_id, full);
+          await this.setJob(job);
+
+          this.emit(job.job_id, "METRIC", { metrics: job.metrics });
+          this.emit(job.job_id, "STATUS", { status: JobStatus.SUCCEEDED });
         }
-
-        job.status = JobStatus.SUCCEEDED;
-        job.updated_at = isoNow();
-        job.finished_at = isoNow();
-        job.result_text = full;
-        job.metrics = finalMetrics ?? null;
-
-        await this.store.setResultText(job.job_id, full);
-        await this.setJob(job);
-
-        this.emit(job.job_id, "METRIC", { metrics: job.metrics });
-        this.emit(job.job_id, "STATUS", { status: JobStatus.SUCCEEDED });
       } catch (err: any) {
         const refreshed = await this.getJob(job.job_id);
         const canceling = refreshed?.status === JobStatus.CANCEL_REQUESTED || controller.signal.aborted;

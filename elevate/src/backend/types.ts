@@ -1,4 +1,4 @@
-export type JobType = "OLLAMA_CHAT" | "OLLAMA_GENERATE";
+export type JobType = "OLLAMA_CHAT" | "OLLAMA_GENERATE" | "PIPELINE_ANALYSIS";
 
 export enum JobStatus {
   QUEUED = "queued",
@@ -50,6 +50,7 @@ export interface JobRecord {
   result_text?: string | null;
   error?: string | null;
   metrics?: Record<string, any> | null;
+  analysis_result?: ModelAnalysisResult | null;
 }
 
 export type JobEventType = "STATUS" | "OUTPUT_CHUNK" | "ERROR" | "METRIC";

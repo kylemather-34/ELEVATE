@@ -36,6 +36,9 @@ export class ElevateContext {
     // compiler error/warnings
     diagnostics?: vscode.Diagnostic[];
 
+    // Raw metrics from Ollama's final response chunk (eval_count, eval_duration, etc.)
+    ollamaMetrics?: any;
+
     constructor(doc: vscode.TextDocument);
 
     /** TEST ONLY: construct from raw text for unit tests */
