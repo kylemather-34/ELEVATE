@@ -233,8 +233,9 @@ export class OllamaStage implements Stage {
 
         logger.info(`OllamaStage: sending prompt to model "${model}"`);
 
-        const response = await this.streamResponse(ctx.prompt, model);
+        const { response, metrics } = await this.streamResponse(ctx.prompt, model);
         ctx.modelResponse = response;
+        ctx.ollamaMetrics = metrics;
         ctx.analysisResult = parseModelResponse(response);
 
         if (ctx.analysisResult) {
@@ -255,8 +256,9 @@ export class OllamaStage implements Stage {
             },
         ];
 
-        const retryResponse = await this.streamResponse(correctionMessages, model);
+        const { response: retryResponse, metrics: retryMetrics } = await this.streamResponse(correctionMessages, model);
         ctx.modelResponse = retryResponse;
+        ctx.ollamaMetrics = retryMetrics;
         ctx.analysisResult = parseModelResponse(retryResponse);
 
         if (ctx.analysisResult) {
@@ -266,16 +268,18 @@ export class OllamaStage implements Stage {
         }
     }
 
-    private async streamResponse(messages: import("../backend/types").ChatMessage[], model: string): Promise<string> {
+    private async streamResponse(messages: import("../backend/types").ChatMessage[], model: string): Promise<{ response: string; metrics: any | null }> {
         const abort = new AbortController();
         let response = "";
+        let metrics: any = null;
         for await (const chunk of this.client.chatStream({
             model,
             messages,
             signal: abort.signal,
         })) {
             if (chunk.delta) response += chunk.delta;
+            if (chunk.raw?.done) metrics = chunk.raw;
         }
-        return response;
+        return { response, metrics };
     }
 }
