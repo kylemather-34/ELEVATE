@@ -87,16 +87,9 @@ export interface UserRulesOptions {
 }
 
 export function applyUserRules(promptText: string, opts: UserRulesOptions, logger: Logger): string {
-    const { verbosity, teachingStyle, customRules } = opts;
+    const { teachingStyle, customRules } = opts;
 
     const lines: string[] = [];
-
-    if (verbosity === "concise") {
-        lines.push("- Keep all feedback brief. Limit issues to the 2–3 most important. Use short sentences.");
-    } else if (verbosity === "verbose") {
-        lines.push("- Be thorough and detailed. Explain concepts fully. Include all issues you find.");
-    }
-
     if (teachingStyle === "socratic") {
         lines.push("- Use a Socratic approach: phrase issues as guiding questions that lead the student to discover the problem themselves.");
     } else if (teachingStyle === "step-by-step") {
@@ -145,8 +138,17 @@ export class PromptBuilderStage implements Stage {
 
         await writeFile(inputPath, JSON.stringify(events), "utf-8");
 
+        const cfg = vscode.workspace.getConfiguration("elevate");
+
+        // Map the VSCode setting value to the C++ binary's low/medium/high vocabulary.
+        const verbositySetting = cfg.get<string>("verbosity", "balanced");
+        const verbosityArg =
+            verbositySetting === "concise" || verbositySetting === "low"   ? "low"  :
+            verbositySetting === "verbose" || verbositySetting === "high"   ? "high" :
+                                                                              "medium";
+
         await new Promise<void>((resolve, reject) => {
-            const proc = spawn(this.binPath, [inputPath, outputPath]);
+            const proc = spawn(this.binPath, [inputPath, outputPath, verbosityArg]);
             let stderr = "";
             proc.stderr.on("data", (d) => (stderr += d.toString()));
             proc.on("close", (code) => {
@@ -160,9 +162,8 @@ export class PromptBuilderStage implements Stage {
         });
 
         const rawPromptText = await readFile(outputPath, "utf-8");
-        const cfg = vscode.workspace.getConfiguration("elevate");
         const promptText = applyUserRules(rawPromptText, {
-            verbosity: cfg.get<string>("verbosity", "balanced"),
+            verbosity: verbositySetting,
             teachingStyle: cfg.get<string>("teachingStyle", "direct"),
             customRules: cfg.get<string>("customRules", "").trim(),
         }, logger);
