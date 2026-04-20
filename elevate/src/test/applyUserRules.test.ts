@@ -29,19 +29,6 @@ suite('applyUserRules', () => {
         assert.strictEqual(result, BASE_PROMPT);
     });
 
-    // --- Verbosity ---
-
-    test('injects concise instruction when verbosity=concise', () => {
-        const result = applyUserRules(BASE_PROMPT, opts({ verbosity: 'concise' }), logger);
-        assert.ok(result.includes('brief'), 'should include brevity instruction');
-        assert.ok(result.includes('2–3 most important'), 'should limit issue count');
-    });
-
-    test('injects verbose instruction when verbosity=verbose', () => {
-        const result = applyUserRules(BASE_PROMPT, opts({ verbosity: 'verbose' }), logger);
-        assert.ok(result.includes('thorough and detailed'), 'should include thoroughness instruction');
-    });
-
     // --- Teaching style ---
 
     test('injects socratic instruction when teachingStyle=socratic', () => {
@@ -83,7 +70,7 @@ suite('applyUserRules', () => {
     // --- Insertion position ---
 
     test('inserts User Preferences section before the output format marker', () => {
-        const result = applyUserRules(BASE_PROMPT, opts({ verbosity: 'concise' }), logger);
+        const result = applyUserRules(BASE_PROMPT, opts({ teachingStyle: 'socratic' }), logger);
         const prefIdx = result.indexOf('User Preferences:');
         const markerIdx = result.indexOf('Output Format (STRICT');
         assert.ok(prefIdx !== -1, 'User Preferences section should be present');
@@ -92,17 +79,17 @@ suite('applyUserRules', () => {
 
     test('falls back to appending when marker is absent', () => {
         const noMarkerPrompt = "Role:\nYou are an instructor.\n";
-        const result = applyUserRules(noMarkerPrompt, opts({ verbosity: 'verbose' }), logger);
+        const result = applyUserRules(noMarkerPrompt, opts({ teachingStyle: 'socratic' }), logger);
         assert.ok(result.startsWith(noMarkerPrompt), 'original prompt should be preserved at the start');
         assert.ok(result.includes('User Preferences:'), 'User Preferences section should still be present');
     });
 
     // --- Combined options ---
 
-    test('combines verbosity and teachingStyle instructions', () => {
-        const result = applyUserRules(BASE_PROMPT, opts({ verbosity: 'verbose', teachingStyle: 'socratic' }), logger);
-        assert.ok(result.includes('thorough and detailed'), 'should include verbose instruction');
+    test('combines teachingStyle and customRules instructions', () => {
+        const result = applyUserRules(BASE_PROMPT, opts({ teachingStyle: 'socratic', customRules: 'Focus on readability.' }), logger);
         assert.ok(result.includes('Socratic'), 'should include socratic instruction');
+        assert.ok(result.includes('Focus on readability.'), 'should include custom rule');
     });
 
     test('combines all three options', () => {
@@ -111,7 +98,6 @@ suite('applyUserRules', () => {
             teachingStyle: 'step-by-step',
             customRules: 'Focus on readability.',
         }), logger);
-        assert.ok(result.includes('brief'), 'should include verbosity instruction');
         assert.ok(result.includes('numbered steps'), 'should include teaching style instruction');
         assert.ok(result.includes('Focus on readability.'), 'should include custom rule');
     });

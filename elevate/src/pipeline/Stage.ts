@@ -141,7 +141,7 @@ export class PromptBuilderStage implements Stage {
         const cfg = vscode.workspace.getConfiguration("elevate");
 
         // Map the VSCode setting value to the C++ binary's low/medium/high vocabulary.
-        const verbositySetting = cfg.get<string>("verbosity", "medium");
+        const verbositySetting = cfg.get<string>("verbosity", "balanced");
         const verbosityArg =
             verbositySetting === "concise" || verbositySetting === "low"   ? "low"  :
             verbositySetting === "verbose" || verbositySetting === "high"   ? "high" :
