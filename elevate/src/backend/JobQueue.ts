@@ -259,11 +259,19 @@ export class JobQueue {
 
       const knownVersion = key ? this.fileVersions.get(key) : undefined;
       if (key && knownVersion !== undefined && job.version !== knownVersion) {
+        job.status = JobStatus.CANCELED;
+        job.updated_at = isoNow();
+        await this.setJob(job);
+        this.emit(job.job_id, "STATUS", { status: JobStatus.CANCELED });
         continue;
       }
 
       if (key && this.activeByKey.get(key) !== job.job_id) {
-      continue; // stale job — skip it
+        job.status = JobStatus.CANCELED;
+        job.updated_at = isoNow();
+        await this.setJob(job);
+        this.emit(job.job_id, "STATUS", { status: JobStatus.CANCELED });
+        continue;
       }
 
       // Might have been canceled while waiting

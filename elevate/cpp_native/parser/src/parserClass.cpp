@@ -97,9 +97,9 @@ namespace Parser
             return BlockType::FOR;
         if (s.rfind("while ", 0) == 0)
             return BlockType::WHILE;
-        if (s.rfind("try", 0) == 0)
+        if (s == "try:" || s.rfind("try:", 0) == 0)
             return BlockType::TRY;
-        if (s.rfind("except", 0) == 0)
+        if (s == "except:" || s.rfind("except ", 0) == 0 || s.rfind("except:", 0) == 0)
             return BlockType::EXCEPT;
         if (s.rfind("with ", 0) == 0)
             return BlockType::WITH;
@@ -170,7 +170,7 @@ namespace Parser
 
                 BlockEvent startEvent;
                 startEvent.kind = EventKind::START;
-                startEvent.type = detectType(line);
+                startEvent.type = detectedType;
                 startEvent.lineNumber = lineNumber;
                 startEvent.indentLevel = indentLevel;
                 startEvent.lineText = trimmed;
