@@ -33,27 +33,29 @@ export class ParseStage implements Stage {
 
         await writeFile(inputPath, code, "utf-8");
 
-        await new Promise<void>((resolve, reject) => {
-            const proc = spawn(this.binPath, [inputPath, outputPath]);
-            let stderr = "";
-            proc.stderr.on("data", (d) => (stderr += d.toString()));
-            proc.on("close", (code) => {
-                if (code !== 0) {
-                    reject(new Error(`Parser exited with code ${code}: ${stderr}`));
-                } else {
-                    resolve();
-                }
+        try {
+            await new Promise<void>((resolve, reject) => {
+                const proc = spawn(this.binPath, [inputPath, outputPath]);
+                let stderr = "";
+                proc.stderr.on("data", (d) => (stderr += d.toString()));
+                proc.on("close", (code) => {
+                    if (code !== 0) {
+                        reject(new Error(`Parser exited with code ${code}: ${stderr}`));
+                    } else {
+                        resolve();
+                    }
+                });
+                proc.on("error", reject);
             });
-            proc.on("error", reject);
-        });
 
-        const raw = await readFile(outputPath, "utf-8");
-        ctx.parsed = JSON.parse(raw) as BlockEvent[];
+            const raw = await readFile(outputPath, "utf-8");
+            ctx.parsed = JSON.parse(raw) as BlockEvent[];
 
-        logger.debug(`ParseStage: produced ${ctx.parsed.length} block event(s)`);
-
-        await unlink(inputPath).catch(() => {});
-        await unlink(outputPath).catch(() => {});
+            logger.debug(`ParseStage: produced ${ctx.parsed.length} block event(s)`);
+        } finally {
+            await unlink(inputPath).catch(() => {});
+            await unlink(outputPath).catch(() => {});
+        }
     }
 }
 
@@ -147,33 +149,35 @@ export class PromptBuilderStage implements Stage {
             verbositySetting === "verbose" || verbositySetting === "high"   ? "high" :
                                                                               "medium";
 
-        await new Promise<void>((resolve, reject) => {
-            const proc = spawn(this.binPath, [inputPath, outputPath, verbosityArg]);
-            let stderr = "";
-            proc.stderr.on("data", (d) => (stderr += d.toString()));
-            proc.on("close", (code) => {
-                if (code !== 0) {
-                    reject(new Error(`PromptBuilder exited with code ${code}: ${stderr}`));
-                } else {
-                    resolve();
-                }
+        try {
+            await new Promise<void>((resolve, reject) => {
+                const proc = spawn(this.binPath, [inputPath, outputPath, verbosityArg]);
+                let stderr = "";
+                proc.stderr.on("data", (d) => (stderr += d.toString()));
+                proc.on("close", (code) => {
+                    if (code !== 0) {
+                        reject(new Error(`PromptBuilder exited with code ${code}: ${stderr}`));
+                    } else {
+                        resolve();
+                    }
+                });
+                proc.on("error", reject);
             });
-            proc.on("error", reject);
-        });
 
-        const rawPromptText = await readFile(outputPath, "utf-8");
-        const promptText = applyUserRules(rawPromptText, {
-            verbosity: verbositySetting,
-            teachingStyle: cfg.get<string>("teachingStyle", "direct"),
-            customRules: cfg.get<string>("customRules", "").trim(),
-        }, logger);
+            const rawPromptText = await readFile(outputPath, "utf-8");
+            const promptText = applyUserRules(rawPromptText, {
+                verbosity: verbositySetting,
+                teachingStyle: cfg.get<string>("teachingStyle", "direct"),
+                customRules: cfg.get<string>("customRules", "").trim(),
+            }, logger);
 
-        ctx.prompt = [{ role: "user", content: promptText }];
+            ctx.prompt = [{ role: "user", content: promptText }];
 
-        logger.logPrompt(promptText);
-
-        await unlink(inputPath).catch(() => {});
-        await unlink(outputPath).catch(() => {});
+            logger.logPrompt(promptText);
+        } finally {
+            await unlink(inputPath).catch(() => {});
+            await unlink(outputPath).catch(() => {});
+        }
     }
 }
 
@@ -269,14 +273,9 @@ export class OllamaStage implements Stage {
     }
 
     private async streamResponse(messages: import("../backend/types").ChatMessage[], model: string): Promise<{ response: string; metrics: any | null }> {
-        const abort = new AbortController();
         let response = "";
         let metrics: any = null;
-        for await (const chunk of this.client.chatStream({
-            model,
-            messages,
-            signal: abort.signal,
-        })) {
+        for await (const chunk of this.client.chatStream({ model, messages })) {
             if (chunk.delta) response += chunk.delta;
             if (chunk.raw?.done) metrics = chunk.raw;
         }

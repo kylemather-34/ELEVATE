@@ -268,6 +268,4 @@ export async function activate(context: vscode.ExtensionContext) {
   output.appendLine("[ELEVATE] Activated.");
 }
 
-export function deactivate() {
-  backend?.stop();
-}
+export function deactivate() {}

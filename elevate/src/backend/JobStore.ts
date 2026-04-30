@@ -56,8 +56,11 @@ export class JobStore {
   private async deleteResultText(jobId: string): Promise<void> {
     try {
       await vscode.workspace.fs.delete(this.jobTextUri(jobId));
-    } catch {
-      // file may not exist, ignore
+    } catch (err) {
+      if (err instanceof vscode.FileSystemError && err.code === "FileNotFound") {
+        return;
+      }
+      throw err;
     }
   }
 

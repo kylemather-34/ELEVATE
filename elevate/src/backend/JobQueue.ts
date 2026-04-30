@@ -37,6 +37,7 @@ export class JobQueue {
   private inMemoryJobs = new Map<string, JobRecord>();
   private activeByKey = new Map<string, string>(); // optional: key -> job_id for active jobs with that key (to enforce single active per key)
   private fileVersions = new Map<string, number>();
+  private notifyWorker?: () => void;
 
   constructor(
     private readonly store: JobStore,
@@ -242,13 +243,15 @@ export class JobQueue {
       if (a.priority !== b.priority) return b.priority - a.priority;
       return a.enqueuedAt - b.enqueuedAt;
     });
+    this.notifyWorker?.();
   }
 
   private async workerLoop(workerIdx: number): Promise<void> {
     while (this.running) {
       const next = this.queue.shift();
       if (!next) {
-        await new Promise((r) => setTimeout(r, 50));
+        await new Promise<void>((r) => { this.notifyWorker = r; });
+        this.notifyWorker = undefined;
         continue;
       }
 

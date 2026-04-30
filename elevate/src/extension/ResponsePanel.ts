@@ -24,7 +24,7 @@ export class ResponsePanel implements vscode.Disposable {
     private static readonly viewType = 'elevate.responsePanel';
     private panel: vscode.WebviewPanel | undefined;
 
-    constructor(private readonly context: vscode.ExtensionContext) {}
+    constructor() {}
 
     public update(modelResponse: string): void {
         if (!this.panel) {
@@ -36,7 +36,7 @@ export class ResponsePanel implements vscode.Disposable {
             );
             this.panel.onDidDispose(() => {
                 this.panel = undefined;
-            }, null, this.context.subscriptions);
+            });
         } else {
             this.panel.reveal(vscode.ViewColumn.Beside, /* preserveFocus */ true);
         }

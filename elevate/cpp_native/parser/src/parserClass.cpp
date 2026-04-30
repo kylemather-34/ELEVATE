@@ -41,17 +41,35 @@ namespace Parser
     //Strips Python inline and full line comments
     //Returns empty string if the full line is a comment
     string stripComment(const string &line){
-        bool inSingle = false; // inside ' '
-        bool inDouble = false; // inside " "
+        bool inSingle = false;
+        bool inDouble = false;
 
         for (size_t i = 0; i < line.size(); i++){
             char c = line[i];
-            
-            //Only treat # as a comment when not inside a string
-            if (c == '\''&& !inDouble) inSingle = !inSingle;
+
+            // Skip escaped characters inside strings
+            if (c == '\\' && (inSingle || inDouble)){
+                i++;
+                continue;
+            }
+
+            // Handle triple-quoted strings (skip over them entirely)
+            if (!inSingle && !inDouble){
+                if (line.substr(i, 3) == "\"\"\"" || line.substr(i, 3) == "'''"){
+                    char q = c;
+                    i += 3;
+                    while (i + 2 < line.size()){
+                        if (line[i] == '\\') { i += 2; continue; }
+                        if (line[i] == q && line[i+1] == q && line[i+2] == q){ i += 2; break; }
+                        i++;
+                    }
+                    continue;
+                }
+            }
+
+            if (c == '\'' && !inDouble) inSingle = !inSingle;
             else if (c == '"' && !inSingle) inDouble = !inDouble;
-            
-            else if (c == '#' && !inSingle && !inDouble) return trim(line.substr(0,i));
+            else if (c == '#' && !inSingle && !inDouble) return trim(line.substr(0, i));
         }
         return line;
     }
