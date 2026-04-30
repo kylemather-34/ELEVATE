@@ -68,10 +68,10 @@ int main(int argc, char *argv[])
                 obj["event"] = "start";
                 break;
             case EventKind::END:
-                obj["event"] = "END";
+                obj["event"] = "end";
                 break;
             case EventKind::LINE:
-                obj["event"] = "LINE";
+                obj["event"] = "line";
                 break;
         }
         obj["type"] = blockTypeToString(event.type);
@@ -87,6 +87,7 @@ int main(int argc, char *argv[])
     if (!outFile.is_open())
     {
         cerr << "Error: Could not create output file " << outputFile << "\n";
+        return 1;
     }
 
     outFile << output.dump(4);
