@@ -3,8 +3,11 @@
 out/**
 node_modules/**
 src/**
+cpp_native/**
+scripts/**
 .gitignore
 .yarnrc
+.husky/**
 esbuild.js
 vsc-extension-quickstart.md
 **/tsconfig.json
