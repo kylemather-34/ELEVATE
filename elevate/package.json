@@ -13,6 +13,7 @@
     "type": "git",
     "url": "https://github.com/kylemather-34/ELEVATE"
   },
+  "license": "MIT",
   "keywords": ["ollama", "python", "AI", "code review", "local LLM", "education"],
   "engines": {
     "vscode": "^1.109.0",
@@ -28,10 +29,6 @@
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
-      {
-        "command": "elevate.helloWorld",
-        "title": "ELEVATE: Hello World"
-      },
       {
         "command": "elevate.runPrompt",
         "title": "ELEVATE: Run Prompt (Ollama)"
