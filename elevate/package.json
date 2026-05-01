@@ -1,22 +1,29 @@
 {
   "name": "elevate",
   "displayName": "ELEVATE",
-  "description": "Capstone work in progress",
-  "version": "0.0.1",
+  "description": "AI-powered Python code feedback using local LLMs via Ollama. No cloud, no API keys.",
+  "version": "0.1.0",
+  "publisher": "PLACEHOLDER",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kylemather-34/ELEVATE"
+  },
+  "keywords": ["ollama", "python", "AI", "code review", "local LLM", "education"],
   "engines": {
     "vscode": "^1.109.0",
     "node": ">=18"
   },
   "categories": [
-    "Other"
+    "Education",
+    "Machine Learning"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onCommand:elevate.helloWorld",
-    "onCommand:elevate.runPrompt",
-    "onCommand:elevate.cancelJob",
-    "onCommand:elevate.openBackendStatus",
-    "onCommand:elevate.showCursorPosition"
+    "onStartupFinished"
   ],
   "main": "./dist/extension.js",
   "contributes": {

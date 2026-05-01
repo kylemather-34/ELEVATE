@@ -27,24 +27,34 @@ export class ResponsePanel implements vscode.Disposable {
     constructor(private readonly context: vscode.ExtensionContext) {}
 
     public update(modelResponse: string): void {
-        if (!this.panel) {
-            this.panel = vscode.window.createWebviewPanel(
-                ResponsePanel.viewType,
-                'ELEVATE: Analysis',
-                { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
-                { enableScripts: false, retainContextWhenHidden: true },
-            );
-            this.panel.onDidDispose(() => {
-                this.panel = undefined;
-            }, null, this.context.subscriptions);
-        } else {
-            this.panel.reveal(vscode.ViewColumn.Beside, /* preserveFocus */ true);
-        }
-        this.panel.webview.html = this.buildHtml(modelResponse);
+        this.ensurePanel(/* preserveFocus */ true);
+        this.panel!.webview.html = this.buildHtml(modelResponse);
     }
 
     public show(): void {
-        this.panel?.reveal(vscode.ViewColumn.Beside, true);
+        if (!this.panel) {
+            this.ensurePanel(/* preserveFocus */ false);
+            this.panel!.webview.html = this.buildPlaceholderHtml();
+        } else {
+            this.panel.reveal(vscode.ViewColumn.Beside, /* preserveFocus */ false);
+        }
+    }
+
+    private ensurePanel(preserveFocus: boolean): void {
+        if (this.panel) {
+            this.panel.reveal(vscode.ViewColumn.Beside, preserveFocus);
+            return;
+        }
+        this.panel = vscode.window.createWebviewPanel(
+            ResponsePanel.viewType,
+            'ELEVATE: Analysis',
+            { viewColumn: vscode.ViewColumn.Beside, preserveFocus },
+            { enableScripts: false, retainContextWhenHidden: true },
+        );
+        this.panel.iconPath = vscode.Uri.joinPath(this.context.extensionUri, 'images', 'icon-tab.png');
+        this.panel.onDidDispose(() => {
+            this.panel = undefined;
+        }, null, this.context.subscriptions);
     }
 
     private parseResponse(raw: string): AnalysisResponse | null {
@@ -172,6 +182,29 @@ export class ResponsePanel implements vscode.Disposable {
         return `
             <p class="parse-warning">Could not parse structured response — showing raw output.</p>
             <div class="raw">${this.escape(content)}</div>`;
+    }
+
+    private buildPlaceholderHtml(): string {
+        return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ELEVATE Analysis</title>
+    <style>
+        body {
+            font-family: var(--vscode-font-family);
+            font-size: var(--vscode-font-size);
+            color: var(--vscode-descriptionForeground);
+            background: var(--vscode-editor-background);
+            padding: 16px 20px;
+            margin: 0;
+        }
+    </style>
+</head>
+<body><p>No analysis yet. Open a Python file to get started.</p></body>
+</html>`;
     }
 
     public dispose(): void {
