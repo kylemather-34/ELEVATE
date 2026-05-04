@@ -54,7 +54,7 @@ export class ResponsePanel implements vscode.Disposable {
         this.panel.iconPath = vscode.Uri.joinPath(this.context.extensionUri, 'images', 'icon-tab.png');
         this.panel.onDidDispose(() => {
             this.panel = undefined;
-        }, null, this.context.subscriptions);
+        });
     }
 
     private parseResponse(raw: string): AnalysisResponse | null {

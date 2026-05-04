@@ -41,7 +41,15 @@ int main(int argc, char *argv[]){
         return 1;
     }
     json parsedData;
-    inFile >> parsedData;
+    try
+    {
+        inFile >> parsedData;
+    }
+    catch (const json::parse_error &e)
+    {
+        cerr << "Error: Failed to parse input JSON: " << e.what() << "\n";
+        return 1;
+    }
 
     //Teaching Template
     string role =

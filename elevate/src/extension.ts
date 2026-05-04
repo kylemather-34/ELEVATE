@@ -23,14 +23,20 @@ export async function activate(context: vscode.ExtensionContext) {
   output.appendLine(`[ELEVATE] Restored ${persistedState.recentFeedback.length} feedback entries from previous session.`);
 
   // Start backend on activation, but don't crash activation if it fails.
+  let backendStarted = false;
   try {
     await backend.start();
+    backendStarted = true;
     output.appendLine("[ELEVATE] Backend started.");
   } catch (err: any) {
     output.appendLine(`[ELEVATE] Backend failed to start: ${err?.message ?? String(err)}`);
     vscode.window.showWarningMessage(
       "ELEVATE backend failed to start. Run \"ELEVATE: Backend Status\" for details."
     );
+  }
+
+  if (!backendStarted) {
+    return;
   }
 
   // Check if Ollama is reachable and warn the user if not.
@@ -262,6 +268,4 @@ export async function activate(context: vscode.ExtensionContext) {
   output.appendLine("[ELEVATE] Activated.");
 }
 
-export function deactivate() {
-  backend?.stop();
-}
+export function deactivate() {}

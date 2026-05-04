@@ -10,8 +10,20 @@ export class SseHub {
 
   emit(evt: JobEvent) {
     if (!this.history.has(evt.job_id) && this.history.size >= MAX_HISTORY_JOBS) {
-      const oldest = this.history.keys().next().value as string;
-      this.history.delete(oldest);
+      // Evict oldest job that has no active listeners (i.e. already done)
+      let evicted = false;
+      for (const key of this.history.keys()) {
+        if (!this.listeners.has(key) || this.listeners.get(key)!.size === 0) {
+          this.history.delete(key);
+          evicted = true;
+          break;
+        }
+      }
+      // Fall back to evicting the oldest job if all have active listeners
+      if (!evicted) {
+        const oldest = this.history.keys().next().value as string;
+        this.history.delete(oldest);
+      }
     }
     const arr = this.history.get(evt.job_id) ?? [];
     arr.push(evt);

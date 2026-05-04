@@ -5,6 +5,8 @@ import { safeJsonParse, safeJsonStringify } from "../util/json";
 const JOBS_FILE = "jobs.json";
 
 export class JobStore {
+  private writeQueue: Promise<void> = Promise.resolve();
+
   constructor(private readonly context: vscode.ExtensionContext) {}
 
   private async ensureDir(): Promise<void> {
@@ -37,11 +39,15 @@ export class JobStore {
   }
 
   async upsert(job: JobRecord): Promise<void> {
+    this.writeQueue = this.writeQueue.then(() => this._upsert(job));
+    return this.writeQueue;
+  }
+
+  private async _upsert(job: JobRecord): Promise<void> {
     const jobs = await this.loadAll();
     const idx = jobs.findIndex((j) => j.job_id === job.job_id);
     if (idx >= 0) jobs[idx] = job;
     else jobs.unshift(job);
-    // keep last 200, delete text files for pruned jobs
     const pruned = jobs.slice(200);
     await this.saveAll(jobs.slice(0, 200));
     await Promise.all(pruned.map((j) => this.deleteResultText(j.job_id)));
@@ -50,8 +56,11 @@ export class JobStore {
   private async deleteResultText(jobId: string): Promise<void> {
     try {
       await vscode.workspace.fs.delete(this.jobTextUri(jobId));
-    } catch {
-      // file may not exist, ignore
+    } catch (err) {
+      if (err instanceof vscode.FileSystemError && err.code === "FileNotFound") {
+        return;
+      }
+      throw err;
     }
   }
 

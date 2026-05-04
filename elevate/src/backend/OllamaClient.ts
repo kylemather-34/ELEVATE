@@ -20,7 +20,7 @@ export class OllamaClient {
     messages: ChatMessage[];
     options?: Record<string, any>;
     keep_alive?: string;
-    signal: AbortSignal;
+    signal?: AbortSignal;
   }): AsyncGenerator<{ delta?: string; raw: any }, void, void> {
     const body = {
       model: args.model,

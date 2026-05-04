@@ -5,7 +5,7 @@ import { JobQueue } from "./JobQueue";
 import { JobStore } from "./JobStore";
 import { SseHub } from "./SSEHub";
 import { OllamaClient } from "./OllamaClient";
-import { CreateChatJobRequest, HealthResponse, JobEvent, JobRecord, JobStatus, ModelsResponse } from "./types";
+import { ChatMessage, CreateChatJobRequest, HealthResponse, JobEvent, JobRecord, JobStatus, ModelsResponse } from "./types";
 import { Pipeline } from "../pipeline/Pipeline";
 import { ParseStage, PromptBuilderStage, OllamaStage } from "../pipeline/Stage";
 import { Logger } from "../util/Logger";
@@ -317,8 +317,8 @@ export class ElevateCore {
     }
   }
 
-  async enqueueChatJob(args: { priority: number; model: string; messages: any[]; keep_alive?: string; options?: any }) {
-    return this.queue.enqueueChatJob(args as any);
+  async enqueueChatJob(args: { priority: number; model: string; messages: ChatMessage[]; keep_alive?: string; options?: Record<string, any> }) {
+    return this.queue.enqueueChatJob(args);
   }
 
   subscribeJob(jobId: string, fn: (evt: JobEvent) => void): () => void {
@@ -377,15 +377,16 @@ export class ElevateCore {
 
     return new Promise((resolve, reject) => {
       let settled = false;
+      let unsub: () => void;
 
       const settle = (fn: () => void) => {
         if (settled) return;
         settled = true;
-        unsub();
+        unsub?.();
         fn();
       };
 
-      const unsub = this.hub.subscribe(jobId, (evt) => {
+      unsub = this.hub.subscribe(jobId, (evt) => {
         if (evt.event_type === "STATUS" && terminal.has(evt.payload.status)) {
           settle(() => {
             this.queue.getJob(jobId)

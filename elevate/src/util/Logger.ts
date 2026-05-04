@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import * as path from 'path';  
 
 export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
 
@@ -36,20 +35,19 @@ export class Logger implements vscode.Disposable {
     }
 
     info(message: string) {
-        this.channel.appendLine(this.format('INFO', message));
+        this.write('INFO', message);
     }
 
     warn(message: string) {
-        this.channel.appendLine(this.format('WARN', message));
+        this.write('WARN', message);
     }
 
     error(message: string) {
-        this.channel.appendLine(this.format('ERROR', message));
+        this.write('ERROR', message);
     }
 
-    // Debug support
-    debug(message:string) {
-        if(this.debugEnabled) {
+    debug(message: string) {
+        if (this.debugEnabled) {
             this.write('DEBUG', message);
         }
     }
