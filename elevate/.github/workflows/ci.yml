@@ -39,3 +39,57 @@ jobs:
       - name: Run tests (macOS)
         if: runner.os == 'macOS'
         run: npm test
+
+  package:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: macos-14
+            target: darwin-arm64
+          - os: macos-13
+            target: darwin-x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Install CMake (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y cmake
+
+      - name: Build C++ binaries
+        run: |
+          cmake -S cpp_native -B cpp_native/build
+          cmake --build cpp_native/build
+
+      - name: Copy binaries to bin/
+        run: |
+          mkdir -p bin
+          cp cpp_native/build/bin/parser bin/
+          cp cpp_native/build/bin/prompt_builder bin/
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Package extension
+        run: vsce package --target ${{ matrix.target }} --no-dependencies
+
+      - name: Upload VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: elevate-${{ matrix.target }}
+          path: "*.vsix"
