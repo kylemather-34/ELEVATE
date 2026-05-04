@@ -34,8 +34,16 @@ export class ElevateCore {
 
     this.ollama = new OllamaClient(ollamaUrl);
 
-    const parserBin = path.join(context.extensionUri.fsPath, "cpp_native", "build", "bin", "parser");
-    const promptBuilderBin = path.join(context.extensionUri.fsPath, "cpp_native", "build", "bin", "prompt_builder");
+    const ext = process.platform === "win32" ? ".exe" : "";
+    const root = context.extensionUri.fsPath;
+    // Packaged extension: binaries are in bin/ at the extension root.
+    // Dev: binaries are in cpp_native/build/bin/ after a local CMake build.
+    const parserBin = require("fs").existsSync(path.join(root, "bin", `parser${ext}`))
+      ? path.join(root, "bin", `parser${ext}`)
+      : path.join(root, "cpp_native", "build", "bin", `parser${ext}`);
+    const promptBuilderBin = require("fs").existsSync(path.join(root, "bin", `prompt_builder${ext}`))
+      ? path.join(root, "bin", `prompt_builder${ext}`)
+      : path.join(root, "cpp_native", "build", "bin", `prompt_builder${ext}`);
 
     this.logger = new Logger(output);
     this.pipeline = new Pipeline(
@@ -170,7 +178,11 @@ export class ElevateCore {
       elevateCtx.parsed = body.parsed;
       elevateCtx.analysisTarget = body.text ?? "";
 
-      const promptBuilderBin = path.join(this.context.extensionUri.fsPath, "cpp_native", "build", "bin", "prompt_builder");
+      const _ext = process.platform === "win32" ? ".exe" : "";
+      const _root = this.context.extensionUri.fsPath;
+      const promptBuilderBin = require("fs").existsSync(path.join(_root, "bin", `prompt_builder${_ext}`))
+        ? path.join(_root, "bin", `prompt_builder${_ext}`)
+        : path.join(_root, "cpp_native", "build", "bin", `prompt_builder${_ext}`);
 
       try {
         await new PromptBuilderStage(promptBuilderBin).run(elevateCtx, this.logger);

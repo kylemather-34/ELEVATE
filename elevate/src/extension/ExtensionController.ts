@@ -42,7 +42,7 @@ export class ExtensionController implements vscode.Disposable {
     }
 
     public activateResponsePanel(context: vscode.ExtensionContext): void {
-        this.responsePanel = new ResponsePanel();
+        this.responsePanel = new ResponsePanel(context);
         context.subscriptions.push(this.responsePanel);
     }
 
