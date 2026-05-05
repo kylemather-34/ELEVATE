@@ -51,8 +51,8 @@
         "title": "ELEVATE: Forget Me (Delete All Data)"
       },
       {
-        "command": "elevate.exportProgress",
-        "title": "ELEVATE: Export Progress"
+        "command": "elevate.exportJobHistory",
+        "title": "ELEVATE: Export Job History"
       },
       {
         "command": "elevate.showPrivacyStatus",

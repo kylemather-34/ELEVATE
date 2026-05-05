@@ -296,9 +296,9 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Command: Export Progress — save all job records to a JSON file
+  // Command: Export Job History — save all job records to a JSON file
   context.subscriptions.push(
-    vscode.commands.registerCommand("elevate.exportProgress", async () => {
+    vscode.commands.registerCommand("elevate.exportJobHistory", async () => {
       try {
         const result = await privacy.exportProgress();
         if (result) {
