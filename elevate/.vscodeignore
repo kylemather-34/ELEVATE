@@ -5,11 +5,16 @@ node_modules/**
 src/**
 cpp_native/**
 scripts/**
+build/**
+test-files/**
+.github/**
+.husky/**
 .gitignore
 .yarnrc
-.husky/**
 esbuild.js
 vsc-extension-quickstart.md
+MARKETPLACE_TODO.md
+CONTRIBUTING.md
 **/tsconfig.json
 **/eslint.config.mjs
 **/*.map
