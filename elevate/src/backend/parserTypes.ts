@@ -13,10 +13,3 @@ export interface ParserError {
     line: number;
     column?: number;
 }
-
-export interface ParserOutput {
-    fileVersion: number;
-    activeBlock: ActiveBlock | null;
-    nestingPath: ActiveBlock[];
-    errors: ParserError[];
-}

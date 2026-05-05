@@ -1,33 +1,31 @@
 {
   "name": "elevate",
   "displayName": "ELEVATE",
-  "description": "Capstone work in progress",
-  "version": "0.0.1",
+  "description": "AI-powered Python code feedback using local LLMs via Ollama. No cloud, no API keys.",
+  "version": "0.1.0",
+  "publisher": "PLACEHOLDER",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kylemather-34/ELEVATE"
+  },
+  "license": "MIT",
+  "keywords": ["ollama", "python", "AI", "code review", "local LLM", "education"],
   "engines": {
     "vscode": "^1.109.0",
     "node": ">=18"
   },
   "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onStartupFinished",
-    "onCommand:elevate.helloWorld",
-    "onCommand:elevate.runPrompt",
-    "onCommand:elevate.cancelJob",
-    "onCommand:elevate.openBackendStatus",
-    "onCommand:elevate.showCursorPosition",
-    "onCommand:elevate.forgetMe",
-    "onCommand:elevate.exportProgress",
-    "onCommand:elevate.showPrivacyStatus"
+    "Education",
+    "Machine Learning"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
-      {
-        "command": "elevate.helloWorld",
-        "title": "ELEVATE: Hello World"
-      },
       {
         "command": "elevate.runPrompt",
         "title": "ELEVATE: Run Prompt (Ollama)"
@@ -45,16 +43,21 @@
         "title": "ELEVATE: Show Cursor Position"
       },
       {
+<<<<<<< HEAD
+        "command": "elevate.openResponsePanel",
+        "title": "ELEVATE: Open Response Panel"
+=======
         "command": "elevate.forgetMe",
         "title": "ELEVATE: Forget Me (Delete All Data)"
       },
       {
-        "command": "elevate.exportProgress",
-        "title": "ELEVATE: Export Progress"
+        "command": "elevate.exportJobHistory",
+        "title": "ELEVATE: Export Job History"
       },
       {
         "command": "elevate.showPrivacyStatus",
         "title": "ELEVATE: Privacy Status"
+>>>>>>> origin/main
       }
     ],
     "configuration": {
@@ -79,7 +82,7 @@
         },
         "elevate.defaultModel": {
           "type": "string",
-          "default": "llama3.2:3b",
+          "default": "qwen2.5-coder:latest",
           "description": "Default Ollama model name"
         },
         "elevate.cursorTracking.enabled": {
@@ -114,11 +117,40 @@
           "default": "**/*",
           "description": "Glob for file system watcher."
         },
+<<<<<<< HEAD
+        "elevate.verbosity": {
+          "type": "string",
+          "enum": ["concise", "balanced", "verbose"],
+          "enumDescriptions": [
+            "Short responses — only the most important 2–3 issues, brief explanations.",
+            "Default balanced detail level.",
+            "Thorough responses — explain concepts fully, include all issues found."
+          ],
+          "default": "balanced",
+          "description": "Controls how detailed the analysis feedback is."
+        },
+        "elevate.teachingStyle": {
+          "type": "string",
+          "enum": ["direct", "socratic", "step-by-step"],
+          "enumDescriptions": [
+            "State issues and improvements plainly and directly.",
+            "Phrase issues as guiding questions that lead the student to discover problems themselves.",
+            "Break every explanation into numbered steps, walking the student through reasoning one step at a time."
+          ],
+          "default": "direct",
+          "description": "Controls the instructional style used in feedback."
+        },
+        "elevate.customRules": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Additional instructions appended to every analysis prompt. Enter one rule per line — each line becomes a separate instruction (e.g. `Always mention time complexity.\\nFocus on readability over cleverness.`)."
+=======
         "elevate.privacy.jobRetentionDays": {
           "type": "number",
           "default": 30,
           "minimum": 1,
           "description": "Automatically delete job history older than this many days on startup."
+>>>>>>> origin/main
         }
       }
     }

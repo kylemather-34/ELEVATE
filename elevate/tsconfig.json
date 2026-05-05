@@ -3,7 +3,8 @@
 		"module": "Node16",
 		"target": "ES2022",
 		"lib": [
-			"ES2022"
+			"ES2022",
+			"dom"
 		],
 		"types": [
 			"node",
@@ -19,6 +20,7 @@
 		// "noUnusedParameters": true,  /* Report errors on unused parameters. */
 	},
 	"exclude": [
+		"build",
 		"cpp_native",
 		"node_modules"
 	]

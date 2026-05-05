@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { FileSnapshot, snapshot } from '../backend/FileSnapshot';
 import { BlockEvent } from './parserTypes';
-import { ChatMessage } from './types';
+import { ChatMessage, ModelAnalysisResult } from './types';
 
 export class ElevateContext {
     // File snapshot with version numbers and full text before analysis
@@ -27,11 +27,17 @@ export class ElevateContext {
     // Response from Ollama
     modelResponse?: string;
 
+    //Parsed and structured output from the model
+    analysisResult?: ModelAnalysisResult;
+
     // Cursor line (0-based) at the time analysis was triggered
     cursorLine?: number;
 
     // compiler error/warnings
     diagnostics?: vscode.Diagnostic[];
+
+    // Raw metrics from Ollama's final response chunk (eval_count, eval_duration, etc.)
+    ollamaMetrics?: any;
 
     constructor(doc: vscode.TextDocument);
 

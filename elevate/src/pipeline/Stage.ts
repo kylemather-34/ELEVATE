@@ -2,22 +2,17 @@ import * as vscode from "vscode";
 import { ElevateContext } from "../backend/ElevateContext";
 import { BlockEvent } from "../backend/parserTypes";
 import { spawn } from "child_process";
+import { randomUUID } from "crypto";
 import { writeFile, readFile, unlink } from "fs/promises";
 import * as os from "os";
 import * as path from "path";
 import { OllamaClient } from "../backend/OllamaClient";
+import { ModelAnalysisResult } from "../backend/types";
 import { Logger } from "../util/Logger";
 
 export interface Stage {
     name: string;
     run(ctx: ElevateContext, logger: Logger): Promise<void>;
-}
-
-export class SanitizationStage implements Stage {
-    name = "Sanitization Stage";
-    async run(_ctx: ElevateContext, _logger: Logger): Promise<void> {
-
-    }
 }
 
 export class ParseStage implements Stage {
@@ -33,32 +28,34 @@ export class ParseStage implements Stage {
 
         logger.debug(`ParseStage: parsing ${code.length} chars`);
 
-        const inputPath = path.join(os.tmpdir(), `elevate_in_${Date.now()}.py`);
-        const outputPath = path.join(os.tmpdir(), `elevate_out_${Date.now()}.json`);
+        const inputPath = path.join(os.tmpdir(), `elevate_in_${randomUUID()}.py`);
+        const outputPath = path.join(os.tmpdir(), `elevate_out_${randomUUID()}.json`);
 
         await writeFile(inputPath, code, "utf-8");
 
-        await new Promise<void>((resolve, reject) => {
-            const proc = spawn(this.binPath, [inputPath, outputPath]);
-            let stderr = "";
-            proc.stderr.on("data", (d) => (stderr += d.toString()));
-            proc.on("close", (code) => {
-                if (code !== 0) {
-                    reject(new Error(`Parser exited with code ${code}: ${stderr}`));
-                } else {
-                    resolve();
-                }
+        try {
+            await new Promise<void>((resolve, reject) => {
+                const proc = spawn(this.binPath, [inputPath, outputPath]);
+                let stderr = "";
+                proc.stderr.on("data", (d) => (stderr += d.toString()));
+                proc.on("close", (code) => {
+                    if (code !== 0) {
+                        reject(new Error(`Parser exited with code ${code}: ${stderr}`));
+                    } else {
+                        resolve();
+                    }
+                });
+                proc.on("error", reject);
             });
-            proc.on("error", reject);
-        });
 
-        const raw = await readFile(outputPath, "utf-8");
-        ctx.parsed = JSON.parse(raw) as BlockEvent[];
+            const raw = await readFile(outputPath, "utf-8");
+            ctx.parsed = JSON.parse(raw) as BlockEvent[];
 
-        logger.debug(`ParseStage: produced ${ctx.parsed.length} block event(s)`);
-
-        await unlink(inputPath).catch(() => {});
-        await unlink(outputPath).catch(() => {});
+            logger.debug(`ParseStage: produced ${ctx.parsed.length} block event(s)`);
+        } finally {
+            await unlink(inputPath).catch(() => {});
+            await unlink(outputPath).catch(() => {});
+        }
     }
 }
 
@@ -81,6 +78,50 @@ function filterToActiveBlock(events: BlockEvent[], cursorLine?: number): BlockEv
     return blockStart === -1 ? events : events.slice(blockStart, blockEnd);
 }
 
+// Matches the opening of the output format section in cpp_native/prompt_builder/src/template.cpp.
+// If that string changes, injection falls back to appending (which may degrade model output format).
+const OUTPUT_FORMAT_MARKER = "Output Format (STRICT";
+
+export interface UserRulesOptions {
+    verbosity: string;
+    teachingStyle: string;
+    customRules: string;
+}
+
+export function applyUserRules(promptText: string, opts: UserRulesOptions, logger: Logger): string {
+    const { teachingStyle, customRules } = opts;
+
+    const lines: string[] = [];
+    if (teachingStyle === "socratic") {
+        lines.push("- Use a Socratic approach: phrase issues as guiding questions that lead the student to discover the problem themselves.");
+    } else if (teachingStyle === "step-by-step") {
+        lines.push("- Break every explanation into numbered steps, walking the student through reasoning one step at a time.");
+    }
+
+    if (customRules) {
+        for (const rule of customRules.split('\n').map(r => r.trim()).filter(r => r.length > 0)) {
+            lines.push(`- ${rule}`);
+        }
+    }
+
+    if (lines.length === 0) {
+        return promptText;
+    }
+
+    const userRulesSection = "User Preferences:\n" + lines.join("\n") + "\n\n";
+
+    // Insert before the output format section so it doesn't override the JSON schema instruction
+    const markerIdx = promptText.indexOf(OUTPUT_FORMAT_MARKER);
+    if (markerIdx !== -1) {
+        return promptText.slice(0, markerIdx) + userRulesSection + promptText.slice(markerIdx);
+    }
+
+    // Fallback: marker not found — prompt_builder output may have changed.
+    // Appending after the output format section may degrade JSON compliance.
+    logger.warn("applyUserRules: output format marker not found in prompt — appending user rules at end");
+    return promptText + "\n" + userRulesSection;
+}
+
 export class PromptBuilderStage implements Stage {
     name = "Prompt Builder Stage";
 
@@ -94,33 +135,81 @@ export class PromptBuilderStage implements Stage {
         const events = filterToActiveBlock(ctx.parsed, ctx.cursorLine);
         logger.debug(`PromptBuilderStage: building prompt from ${events.length}/${ctx.parsed.length} block event(s) (cursorLine=${ctx.cursorLine})`);
 
-        const inputPath = path.join(os.tmpdir(), `elevate_prompt_in_${Date.now()}.json`);
-        const outputPath = path.join(os.tmpdir(), `elevate_prompt_out_${Date.now()}.txt`);
+        const inputPath = path.join(os.tmpdir(), `elevate_prompt_in_${randomUUID()}.json`);
+        const outputPath = path.join(os.tmpdir(), `elevate_prompt_out_${randomUUID()}.txt`);
 
         await writeFile(inputPath, JSON.stringify(events), "utf-8");
 
-        await new Promise<void>((resolve, reject) => {
-            const proc = spawn(this.binPath, [inputPath, outputPath]);
-            let stderr = "";
-            proc.stderr.on("data", (d) => (stderr += d.toString()));
-            proc.on("close", (code) => {
-                if (code !== 0) {
-                    reject(new Error(`PromptBuilder exited with code ${code}: ${stderr}`));
-                } else {
-                    resolve();
-                }
+        const cfg = vscode.workspace.getConfiguration("elevate");
+
+        // Map the VSCode setting value to the C++ binary's low/medium/high vocabulary.
+        const verbositySetting = cfg.get<string>("verbosity", "balanced");
+        const verbosityArg =
+            verbositySetting === "concise" || verbositySetting === "low"   ? "low"  :
+            verbositySetting === "verbose" || verbositySetting === "high"   ? "high" :
+                                                                              "medium";
+
+        try {
+            await new Promise<void>((resolve, reject) => {
+                const proc = spawn(this.binPath, [inputPath, outputPath, verbosityArg]);
+                let stderr = "";
+                proc.stderr.on("data", (d) => (stderr += d.toString()));
+                proc.on("close", (code) => {
+                    if (code !== 0) {
+                        reject(new Error(`PromptBuilder exited with code ${code}: ${stderr}`));
+                    } else {
+                        resolve();
+                    }
+                });
+                proc.on("error", reject);
             });
-            proc.on("error", reject);
-        });
 
-        const promptText = await readFile(outputPath, "utf-8");
+            const rawPromptText = await readFile(outputPath, "utf-8");
+            const promptText = applyUserRules(rawPromptText, {
+                verbosity: verbositySetting,
+                teachingStyle: cfg.get<string>("teachingStyle", "direct"),
+                customRules: cfg.get<string>("customRules", "").trim(),
+            }, logger);
 
-        ctx.prompt = [{ role: "user", content: promptText }];
+            ctx.prompt = [{ role: "user", content: promptText }];
 
-        logger.logPrompt(promptText);
+            logger.logPrompt(promptText);
+        } finally {
+            await unlink(inputPath).catch(() => {});
+            await unlink(outputPath).catch(() => {});
+        }
+    }
+}
 
-        await unlink(inputPath).catch(() => {});
-        await unlink(outputPath).catch(() => {});
+function parseModelResponse(raw: string): ModelAnalysisResult | undefined{
+    // Extract the first complete JSON object from the response.
+    // Models sometimes prepend prose before the JSON, so we find the
+    // first '{' and last '}' rather than parsing the whole string.
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start === -1 || end === -1 || end < start) return undefined;
+
+    try{
+        const parsed = JSON.parse(raw.slice(start, end + 1));
+
+        // Validate that all required fields are present and have the correct types
+        if (typeof parsed.structural_summary !== "string")  return undefined;
+        if (!Array.isArray(parsed.issues))                  return undefined;
+        if (typeof parsed.complexity !== "string")          return undefined;
+        if (!Array.isArray(parsed.improvements))            return undefined;
+
+        for (const issue of parsed.issues) {
+            if (typeof issue.line !== "number")             return undefined;
+            if (typeof issue.description !== "string")     return undefined;
+            if (issue.severity !== "error" &&
+                issue.severity !== "warning" &&
+                issue.severity !== "info")                  return undefined;
+        }
+
+        return parsed as ModelAnalysisResult;
+    }catch{
+        //Model doesn't return valid JSON - fail gracefully to prevent crashes
+        return undefined;
     }
 }
 
@@ -133,9 +222,10 @@ export class OllamaStage implements Stage {
         /*
          * Requires ctx.prompt to be populated by PromptBuilderStage.
          * Reads the target model from VSCode settings (elevate.defaultModel),
-         * falling back to llama3.2:3b.
+         * falling back to qwen2.5-coder:latest.
          * Streams the response from Ollama chunk by chunk, accumulating
          * the full text, then stores it in ctx.modelResponse for the caller.
+         * If the response fails JSON validation, retries once with a correction message.
          */
         if (!ctx.prompt || ctx.prompt.length === 0) {
             throw new Error("OllamaStage: no prompt set on context");
@@ -143,23 +233,52 @@ export class OllamaStage implements Stage {
 
         const model = vscode.workspace
             .getConfiguration("elevate")
-            .get<string>("defaultModel") ?? "llama3.2:3b";
+            .get<string>("defaultModel") ?? "qwen2.5-coder:latest";
 
         logger.info(`OllamaStage: sending prompt to model "${model}"`);
 
-        const abort = new AbortController();
-        let response = "";
+        const { response, metrics } = await this.streamResponse(ctx.prompt, model);
+        ctx.modelResponse = response;
+        ctx.ollamaMetrics = metrics;
+        ctx.analysisResult = parseModelResponse(response);
 
-        for await (const chunk of this.client.chatStream({
-            model,
-            messages: ctx.prompt,
-            signal: abort.signal,
-        })) {
-            if (chunk.delta) {
-                response += chunk.delta;
-            }
+        if (ctx.analysisResult) {
+            logger.info(`OllamaStage: parsed ${ctx.analysisResult.issues.length} issue(s) from model response`);
+            return;
         }
 
-        ctx.modelResponse = response;
+        // Retry: send the bad response back and ask the model to correct it
+        logger.info("OllamaStage: response was not valid JSON — retrying with correction message");
+
+        const correctionMessages: import("../backend/types").ChatMessage[] = [
+            ...ctx.prompt,
+            { role: "assistant", content: response },
+            { role: "user", content:
+                "Your previous response was not valid JSON. " +
+                "Respond with ONLY the raw JSON object — no explanation, no prose, no markdown. " +
+                "Start your response with '{' and end with '}'."
+            },
+        ];
+
+        const { response: retryResponse, metrics: retryMetrics } = await this.streamResponse(correctionMessages, model);
+        ctx.modelResponse = retryResponse;
+        ctx.ollamaMetrics = retryMetrics;
+        ctx.analysisResult = parseModelResponse(retryResponse);
+
+        if (ctx.analysisResult) {
+            logger.info(`OllamaStage: retry succeeded, parsed ${ctx.analysisResult.issues.length} issue(s)`);
+        } else {
+            logger.info("OllamaStage: retry failed — analysisResult not set");
+        }
+    }
+
+    private async streamResponse(messages: import("../backend/types").ChatMessage[], model: string): Promise<{ response: string; metrics: any | null }> {
+        let response = "";
+        let metrics: any = null;
+        for await (const chunk of this.client.chatStream({ model, messages })) {
+            if (chunk.delta) response += chunk.delta;
+            if (chunk.raw?.done) metrics = chunk.raw;
+        }
+        return { response, metrics };
     }
 }

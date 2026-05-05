@@ -38,6 +38,52 @@ namespace Parser
         return line.substr(start, end - start + 1);
     }
 
+    //Strips Python inline and full line comments
+    //Returns empty string if the full line is a comment
+    string stripComment(const string &line){
+        bool inSingle = false;
+        bool inDouble = false;
+
+        for (size_t i = 0; i < line.size(); i++){
+            char c = line[i];
+
+            // Skip escaped characters inside strings
+            if (c == '\\' && (inSingle || inDouble)){
+                i++;
+                continue;
+            }
+
+            // Handle triple-quoted strings (skip over them entirely)
+            if (!inSingle && !inDouble){
+                if (line.substr(i, 3) == "\"\"\"" || line.substr(i, 3) == "'''"){
+                    char q = c;
+                    i += 3;
+                    while (i + 2 < line.size()){
+                        if (line[i] == '\\') { i += 2; continue; }
+                        if (line[i] == q && line[i+1] == q && line[i+2] == q){ i += 2; break; }
+                        i++;
+                    }
+                    continue;
+                }
+            }
+
+            if (c == '\'' && !inDouble) inSingle = !inSingle;
+            else if (c == '"' && !inSingle) inDouble = !inDouble;
+            else if (c == '#' && !inSingle && !inDouble) return trim(line.substr(0, i));
+        }
+        return line;
+    }
+
+    // Removes non printable control characters
+    string sanitizeText(const string &line){
+        string result;
+        result.reserve(line.size());
+        for (unsigned char c : line){
+            if (c >= 32 || c == '\t') result += c;
+        }
+        return result;
+    }
+
     // Determines the start of each block
     bool startBlock(const string &line)
     {
@@ -69,9 +115,9 @@ namespace Parser
             return BlockType::FOR;
         if (s.rfind("while ", 0) == 0)
             return BlockType::WHILE;
-        if (s.rfind("try", 0) == 0)
+        if (s == "try:" || s.rfind("try:", 0) == 0)
             return BlockType::TRY;
-        if (s.rfind("except", 0) == 0)
+        if (s == "except:" || s.rfind("except ", 0) == 0 || s.rfind("except:", 0) == 0)
             return BlockType::EXCEPT;
         if (s.rfind("with ", 0) == 0)
             return BlockType::WITH;
@@ -85,16 +131,30 @@ namespace Parser
         vector<BlockEvent> events;
         stack<ActiveBlock> blockStack;
 
+        const size_t MAX_EVENTS = 500;
+        const size_t MAX_LINE_LENGTH = 200;
+
         string line;
         int lineNumber = 0;
+        bool hitLimit = false;
 
         // Read file line by line
         while (getline(file, line))
         {
             lineNumber++;
 
+            if (events.size() >= MAX_EVENTS){
+                hitLimit = true;
+                break;
+            } 
+
             int indentLevel = countIndent(line);
             string trimmed = trim(line);
+            trimmed = stripComment(trimmed);
+            trimmed = sanitizeText(trimmed);
+
+            if (trimmed.size() > MAX_LINE_LENGTH)
+                trimmed = trimmed.substr(0, MAX_LINE_LENGTH) + "...[truncated]";
 
             if (trimmed.empty())
                 continue;
@@ -128,7 +188,7 @@ namespace Parser
 
                 BlockEvent startEvent;
                 startEvent.kind = EventKind::START;
-                startEvent.type = detectType(line);
+                startEvent.type = detectedType;
                 startEvent.lineNumber = lineNumber;
                 startEvent.indentLevel = indentLevel;
                 startEvent.lineText = trimmed;
@@ -158,7 +218,7 @@ namespace Parser
             endEvent.type = blockStack.top().type;
             endEvent.lineNumber = lineNumber;
             endEvent.indentLevel = 0;
-            endEvent.lineText = "EOF";
+            endEvent.lineText = hitLimit ? "TRUNCATED" : "EOF";
 
             events.push_back(endEvent);
 

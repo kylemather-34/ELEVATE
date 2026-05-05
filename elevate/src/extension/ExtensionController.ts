@@ -4,12 +4,14 @@ import { ElevateCore } from '../backend/ElevateCore';
 import { FileSnapshot } from '../backend/FileSnapshot';
 import { Logger } from '../util/Logger';
 import { EditListener } from './editListener';
+import { ResponsePanel } from './ResponsePanel';
 
 // The result produced after a full pipeline run — passed to VSCode via the event below.
 export interface AnalysisResult {
     uri: string;           // file that was analysed
     modelResponse: string; // text returned by Ollama
     snapshot?: FileSnapshot;
+    ctx: ElevateContext;
 }
 
 // ExtensionController is the communication layer between VSCode events (file open, save)
@@ -24,6 +26,7 @@ export class ExtensionController implements vscode.Disposable {
     public readonly onAnalysisComplete = this._onAnalysisComplete.event;
 
     private statusBar?: vscode.StatusBarItem;
+    private responsePanel?: ResponsePanel;
 
     constructor(
         private readonly backend: ElevateCore,
@@ -32,11 +35,19 @@ export class ExtensionController implements vscode.Disposable {
 
     // Called every time a pipeline run succeeds and produces a model response.
     // Fires onAnalysisComplete so all subscribers are notified.
-    // Next sprint: add response panel update and diagnostics/squiggles here.
     private handleAnalysisComplete(result: AnalysisResult): void {
         this.logger.info(`[analysis] complete for: ${result.uri} (${result.modelResponse.length} chars)`);
         this._onAnalysisComplete.fire(result);
-        // TODO next sprint: update response panel, push diagnostics/squiggles
+        this.responsePanel?.update(result.modelResponse);
+    }
+
+    public activateResponsePanel(context: vscode.ExtensionContext): void {
+        this.responsePanel = new ResponsePanel(context);
+        context.subscriptions.push(this.responsePanel);
+    }
+
+    public showResponsePanel(): void {
+        this.responsePanel?.show();
     }
 
     public dispose(): void {
@@ -58,31 +69,36 @@ export class ExtensionController implements vscode.Disposable {
         const openFileListener = vscode.workspace.onDidOpenTextDocument(
             async (document: vscode.TextDocument) => {
                 this.logger.info(`[open-file] fired: scheme=${document.uri.scheme} uri=${document.uri.toString()}`);
-                if (document.uri.scheme !== 'file') return;
+                if (document.uri.scheme !== 'file') { return; }
+                if (document.languageId !== 'python') { return; }
 
                 this.logger.info(`[analysis] started for: ${document.uri.toString()}`);
-                if (this.statusBar) this.statusBar.text ='$(sync~spin) Elevate: Analyzing...';
+                if (this.statusBar) { this.statusBar.text = '$(sync~spin) Elevate: Analyzing...'; }
                 const ctx = new ElevateContext(document);
                 ctx.cursorLine = vscode.window.activeTextEditor?.selection.active.line;
 
                 try {
                     await this.backend.runPipeline(ctx);
                 } catch (err: any) {
-                    if (this.statusBar) this.statusBar.text ='$(error) Elevate: Failed';
+                    if (this.statusBar) { this.statusBar.text = '$(error) Elevate: Failed'; }
                     this.logger.error(`[analysis] pipeline error: ${err?.message ?? String(err)}`);
                     return;
                 }
 
-                if (ctx.modelResponse) {
-                    if (this.statusBar) this.statusBar.text ='$(check) Elevate: Done';
+                if (ctx.modelResponse && ctx.analysisResult) {
+                    if (this.statusBar) { this.statusBar.text = '$(check) Elevate: Done'; }
                     this.logger.logResponseFinal(ctx.modelResponse);
                     this.handleAnalysisComplete({
                         uri: ctx.snapshot?.uri ?? document.uri.toString(),
                         modelResponse: ctx.modelResponse,
                         snapshot: ctx.snapshot,
+                        ctx,
                     });
+                } else if (ctx.modelResponse && !ctx.analysisResult) {
+                    if (this.statusBar) { this.statusBar.text = '$(warning) Elevate: Could not parse response'; }
+                    this.logger.info('[analysis] response was not valid JSON after retry.');
                 } else {
-                    if (this.statusBar) this.statusBar.text ='$(circle-outline) Elevate: Idle';
+                    if (this.statusBar) { this.statusBar.text = '$(circle-outline) Elevate: Idle'; }
                     this.logger.info('[analysis] pipeline completed with no model response.');
                 }
             }
@@ -102,10 +118,11 @@ export class ExtensionController implements vscode.Disposable {
             fsWatcherEnabled: options.fsWatcherEnabled ?? false,
             fsWatcherGlob: options.fsWatcherGlob,
             onEdit: async (doc) => {
+                if (doc.languageId !== 'python') { return; }
                 this.logger.info(`[analysis] started on save: ${doc.uri.toString()} (version=${doc.version})`);
                 if (this.statusBar) this.statusBar.text ='$(sync~spin) Elevate: Analyzing...';
                 const ctx = new ElevateContext(doc);
-                ctx.cursorLine = vscode.window.activeTextEditor?.selection.active.line;
+                // No cursorLine set — analyzes the whole file on save
 
                 try {
                     await this.backend.runPipeline(ctx);
@@ -115,16 +132,20 @@ export class ExtensionController implements vscode.Disposable {
                     return;
                 }
 
-                if (ctx.modelResponse) {
-                    if (this.statusBar) this.statusBar.text ='$(check) Elevate: Done';
+                if (ctx.modelResponse && ctx.analysisResult) {
+                    if (this.statusBar) this.statusBar.text = '$(check) Elevate: Done';
                     this.logger.logResponseFinal(ctx.modelResponse);
                     this.handleAnalysisComplete({
                         uri: ctx.snapshot?.uri ?? doc.uri.toString(),
                         modelResponse: ctx.modelResponse,
                         snapshot: ctx.snapshot,
+                        ctx,
                     });
+                } else if (ctx.modelResponse && !ctx.analysisResult) {
+                    if (this.statusBar) this.statusBar.text = '$(warning) Elevate: Could not parse response';
+                    this.logger.info('[analysis] response was not valid JSON after retry.');
                 } else {
-                    if (this.statusBar) this.statusBar.text ='$(circle-outline) Elevate: Idle';
+                    if (this.statusBar) this.statusBar.text = '$(circle-outline) Elevate: Idle';
                     this.logger.info('[analysis] pipeline completed with no model response.');
                 }
             },

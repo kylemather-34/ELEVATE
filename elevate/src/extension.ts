@@ -4,7 +4,7 @@ import { JobEvent, JobRecord, JobStatus } from "./backend/types";
 import { CursorTracker } from "./extension/cursorTracker";
 import { Logger } from "./util/Logger";
 import { ExtensionController } from "./extension/ExtensionController";
-import { loadSettings } from "./backend/StorageLayer";
+import { loadElevateState, saveElevateState } from "./backend/StorageLayer";
 import { CoreStateManager } from "./backend/CoreStateManager";
 import { PrivacyManager } from "./backend/PrivacyManager";
 
@@ -19,11 +19,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
   backend = new ElevateCore(context, output);
 
-  const privacy = new PrivacyManager(context, backend.getStore());
+  // Restore persisted state from previous session
+  const persistedState = loadElevateState(context);
+  output.appendLine(`[ELEVATE] Restored ${persistedState.recentFeedback.length} feedback entries from previous session.`);
 
-  // Load persisted settings on activation
-  const settings = loadSettings(context);
-  output.appendLine("[ELEVATE] Loaded Settings: " + JSON.stringify(settings));
+  const privacy = new PrivacyManager(context, backend.getStore());
   output.appendLine("[ELEVATE] Privacy: all analysis runs locally via Ollama — no data leaves this machine.");
 
   // Auto-prune job history on startup
@@ -34,9 +34,12 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   }).catch(() => {});
 
+
   // Start backend on activation, but don't crash activation if it fails.
+  let backendStarted = false;
   try {
     await backend.start();
+    backendStarted = true;
     output.appendLine("[ELEVATE] Backend started.");
   } catch (err: any) {
     output.appendLine(`[ELEVATE] Backend failed to start: ${err?.message ?? String(err)}`);
@@ -45,11 +48,33 @@ export async function activate(context: vscode.ExtensionContext) {
     );
   }
 
+  if (!backendStarted) {
+    return;
+  }
+
+  // Check if Ollama is reachable and warn the user if not.
+  const ollamaReachable = await backend.checkOllama();
+  if (!ollamaReachable) {
+    output.appendLine("[ELEVATE] Ollama is not reachable.");
+    const action = await vscode.window.showWarningMessage(
+      "ELEVATE: Ollama is not running. Start it with `ollama serve`, or enable \"Launch at Login\" in the Ollama menu bar app.",
+      "Open Ollama Docs"
+    );
+    if (action === "Open Ollama Docs") {
+      vscode.env.openExternal(vscode.Uri.parse("https://ollama.com/download"));
+    }
+  }
+
   const stateManager = new CoreStateManager();
   stateManager.initialize();
+  stateManager.getSession().restoreFeedback(persistedState.recentFeedback);
+  if (persistedState.lastActiveFile) {
+    stateManager.getSession().setActiveFile(persistedState.lastActiveFile);
+  }
 
   const controller = new ExtensionController(backend, logger);
   controller.activateStatusBar(context);
+  controller.activateResponsePanel(context);
   controller.activateOpenFileListener(context);
   context.subscriptions.push(controller);
 
@@ -59,17 +84,18 @@ export async function activate(context: vscode.ExtensionContext) {
       stateManager.getSession().setActiveFile(result.snapshot);
     }
     stateManager.getSession().addFeedback(result.modelResponse);
+    stateManager.saveState(result.ctx);
+    saveElevateState(context, {
+      recentFeedback: stateManager.getSession().getRecentFeedback(),
+      lastActiveFile: stateManager.getSession().getActiveFile(),
+    });
   });
 
-  // Next sprint: response panel — receives the model's analysis text and displays it in a UI panel.
-  controller.onAnalysisComplete((_result) => {
-    // TODO next sprint: responsePanel.update(_result.modelResponse);
-  });
-
-  // Next sprint: diagnostics — parses the model response and pushes inline squiggles to the editor.
-  controller.onAnalysisComplete((_result) => {
-    // TODO next sprint: diagnosticsProvider.set(_result.uri, _result.modelResponse);
-  });
+  context.subscriptions.push(
+    vscode.commands.registerCommand("elevate.openResponsePanel", () => {
+      controller.showResponsePanel();
+    })
+  );
 
   const cfg = vscode.workspace.getConfiguration("elevate");
 
@@ -143,7 +169,7 @@ export async function activate(context: vscode.ExtensionContext) {
       if (!backend) return;
 
       const cfg = vscode.workspace.getConfiguration("elevate");
-      const model = cfg.get<string>("defaultModel") ?? "llama3.1:latest";
+      const model = cfg.get<string>("defaultModel") ?? "qwen2.5-coder:latest";
 
       const prompt = await vscode.window.showInputBox({
         title: "ELEVATE (Ollama)",
@@ -270,9 +296,9 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Command: Export Progress — save all job records to a JSON file
+  // Command: Export Job History — save all job records to a JSON file
   context.subscriptions.push(
-    vscode.commands.registerCommand("elevate.exportProgress", async () => {
+    vscode.commands.registerCommand("elevate.exportJobHistory", async () => {
       try {
         const result = await privacy.exportProgress();
         if (result) {
@@ -308,6 +334,4 @@ export async function activate(context: vscode.ExtensionContext) {
   output.appendLine("[ELEVATE] Activated.");
 }
 
-export function deactivate() {
-  backend?.stop();
-}
+export function deactivate() {}

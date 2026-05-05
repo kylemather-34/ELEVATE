@@ -8,7 +8,7 @@ export interface EditListenerOptions {
   maxWaitMs?: number;
   fsWatcherEnabled: boolean;
   fsWatcherGlob?: string;
-  onEdit?: (doc: vscode.TextDocument) => void;
+  onEdit?: (doc: vscode.TextDocument) => Promise<void>;
 }
 
 export class EditListener implements vscode.Disposable {
@@ -71,7 +71,7 @@ export class EditListener implements vscode.Disposable {
     // Cancel any pending debounced edit — the save fires onEdit directly below
     this.debouncer.cancel(key);
 
-    this.opts.onEdit?.(doc);
+    this.opts.onEdit?.(doc).catch((err) => this.logger.error(`[save] onEdit error: ${err?.message ?? String(err)}`));
 
     this.logger.info(`[save] ${doc.uri.toString()} (version=${doc.version})`);
   }
@@ -98,6 +98,6 @@ export class EditListener implements vscode.Disposable {
 
     this.logger.info(`[edit] ${doc.uri.toString()} (version=${doc.version}, dirty=${doc.isDirty})`);
 
-    this.opts.onEdit?.(doc);
+    this.opts.onEdit?.(doc).catch((err) => this.logger.error(`[edit] onEdit error: ${err?.message ?? String(err)}`));
   }
 }
