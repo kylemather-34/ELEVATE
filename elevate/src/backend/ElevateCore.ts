@@ -10,6 +10,7 @@ import { Pipeline } from "../pipeline/Pipeline";
 import { ParseStage, PromptBuilderStage, OllamaStage } from "../pipeline/Stage";
 import { Logger } from "../util/Logger";
 import { ElevateContext } from "./ElevateContext";
+import { OllamaProcess } from "./OllamaProcess";
 import * as path from "path";
 
 export class ElevateCore {
@@ -18,6 +19,7 @@ export class ElevateCore {
   private store: JobStore;
   private queue: JobQueue;
   private ollama: OllamaClient;
+  private ollamaProcess: OllamaProcess;
   private logger: Logger;
   private pipeline: Pipeline;
   private diagnosticCollection: vscode.DiagnosticCollection;
@@ -33,7 +35,6 @@ export class ElevateCore {
     const concurrency = cfg.get<number>("concurrency") ?? 1;
 
     this.ollama = new OllamaClient(ollamaUrl);
-
     const ext = process.platform === "win32" ? ".exe" : "";
     const root = context.extensionUri.fsPath;
     // Packaged extension: binaries are in bin/ at the extension root.
@@ -93,7 +94,8 @@ export class ElevateCore {
   }
 
   async start(): Promise<void> {
-    // start queue
+    // start ollama, then queue
+    await this.ollamaProcess.start();
     await this.queue.start();
 
     // start HTTP server
@@ -299,7 +301,11 @@ export class ElevateCore {
     this.queue.stop();
     void this.server?.close();
     this.server = null;
+<<<<<<< HEAD
     this.diagnosticCollection.dispose();
+=======
+    this.ollamaProcess.stop();
+>>>>>>> origin/main
   }
 
   async health(): Promise<HealthResponse> {
@@ -331,6 +337,10 @@ export class ElevateCore {
 
   async cancelJob(jobId: string) {
     return this.queue.cancelJob(jobId);
+  }
+
+  getStore(): JobStore {
+    return this.store;
   }
 
   async runPipeline(ctx: ElevateContext): Promise<void> {
