@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main, dev, backend]
+    tags: ['v*']
   pull_request:
     branches: [main, dev]
 
@@ -42,18 +43,28 @@ jobs:
 
   package:
     needs: test
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
             target: linux-x64
+            ext: ''
           - os: macos-14
             target: darwin-arm64
+            ext: ''
           - os: macos-13
             target: darwin-x64
+            ext: ''
+          - os: windows-latest
+            target: win32-x64
+            ext: '.exe'
 
     runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - uses: actions/checkout@v4
@@ -74,13 +85,19 @@ jobs:
       - name: Build C++ binaries
         run: |
           cmake -S cpp_native -B cpp_native/build
-          cmake --build cpp_native/build
+          cmake --build cpp_native/build --config Release
 
       - name: Copy binaries to bin/
         run: |
           mkdir -p bin
-          cp cpp_native/build/bin/parser bin/
-          cp cpp_native/build/bin/prompt_builder bin/
+          # Windows MSVC drops binaries under bin/Release/; Unix puts them in bin/.
+          if [ -f "cpp_native/build/bin/Release/parser${{ matrix.ext }}" ]; then
+            cp "cpp_native/build/bin/Release/parser${{ matrix.ext }}" bin/
+            cp "cpp_native/build/bin/Release/prompt_builder${{ matrix.ext }}" bin/
+          else
+            cp "cpp_native/build/bin/parser${{ matrix.ext }}" bin/
+            cp "cpp_native/build/bin/prompt_builder${{ matrix.ext }}" bin/
+          fi
 
       - name: Install vsce
         run: npm install -g @vscode/vsce
@@ -93,3 +110,33 @@ jobs:
         with:
           name: elevate-${{ matrix.target }}
           path: "*.vsix"
+
+  publish:
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download all VSIX artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Publish each VSIX to the marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          for vsix in artifacts/*/*.vsix; do
+            echo "Publishing $vsix"
+            vsce publish --packagePath "$vsix" --no-dependencies
+          done

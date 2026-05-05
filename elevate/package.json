@@ -3,7 +3,7 @@
   "displayName": "ELEVATE",
   "description": "AI-powered Python code feedback using local LLMs via Ollama. No cloud, no API keys.",
   "version": "0.1.0",
-  "publisher": "PLACEHOLDER",
+  "publisher": "ElevenSeven",
   "icon": "images/icon.png",
   "galleryBanner": {
     "color": "#1e1e1e",
