@@ -23,9 +23,6 @@
     "Education",
     "Machine Learning"
   ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -46,8 +43,21 @@
         "title": "ELEVATE: Show Cursor Position"
       },
       {
+<<<<<<< HEAD
         "command": "elevate.openResponsePanel",
         "title": "ELEVATE: Open Response Panel"
+=======
+        "command": "elevate.forgetMe",
+        "title": "ELEVATE: Forget Me (Delete All Data)"
+      },
+      {
+        "command": "elevate.exportJobHistory",
+        "title": "ELEVATE: Export Job History"
+      },
+      {
+        "command": "elevate.showPrivacyStatus",
+        "title": "ELEVATE: Privacy Status"
+>>>>>>> origin/main
       }
     ],
     "configuration": {
@@ -107,6 +117,7 @@
           "default": "**/*",
           "description": "Glob for file system watcher."
         },
+<<<<<<< HEAD
         "elevate.verbosity": {
           "type": "string",
           "enum": ["concise", "balanced", "verbose"],
@@ -133,6 +144,13 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Additional instructions appended to every analysis prompt. Enter one rule per line — each line becomes a separate instruction (e.g. `Always mention time complexity.\\nFocus on readability over cleverness.`)."
+=======
+        "elevate.privacy.jobRetentionDays": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "description": "Automatically delete job history older than this many days on startup."
+>>>>>>> origin/main
         }
       }
     }
