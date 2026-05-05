@@ -35,6 +35,7 @@ export class ElevateCore {
     const concurrency = cfg.get<number>("concurrency") ?? 1;
 
     this.ollama = new OllamaClient(ollamaUrl);
+    this.ollamaProcess = new OllamaProcess(ollamaUrl, output);
     const ext = process.platform === "win32" ? ".exe" : "";
     const root = context.extensionUri.fsPath;
     // Packaged extension: binaries are in bin/ at the extension root.
@@ -301,11 +302,8 @@ export class ElevateCore {
     this.queue.stop();
     void this.server?.close();
     this.server = null;
-<<<<<<< HEAD
     this.diagnosticCollection.dispose();
-=======
     this.ollamaProcess.stop();
->>>>>>> origin/main
   }
 
   async health(): Promise<HealthResponse> {
