@@ -11,7 +11,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/kylemather-34/ELEVATE"
+    "url": "https://github.com/kylemather-34/ELEVATE",
+    "directory": "elevate"
   },
   "license": "MIT",
   "keywords": ["ollama", "python", "AI", "code review", "local LLM", "education"],
