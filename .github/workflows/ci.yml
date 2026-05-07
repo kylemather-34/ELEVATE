@@ -58,9 +58,6 @@ jobs:
           - os: macos-14
             target: darwin-arm64
             ext: ''
-          - os: macos-13
-            target: darwin-x64
-            ext: ''
           - os: windows-latest
             target: win32-x64
             ext: '.exe'
